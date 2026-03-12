@@ -1172,6 +1172,20 @@ const MerchSection = ({ addToCart }) => (
   </div>
 );
 
+const InvestorsSection = () => (
+  <div className="py-16 px-4 bg-zinc-950 min-h-screen text-white">
+    <div className="max-w-4xl mx-auto">
+      <h2 className="text-4xl font-black tracking-tighter mb-6 uppercase border-l-8 border-amber-500 pl-4">
+        Investors
+      </h2>
+      <p className="text-zinc-300 text-lg mb-4">Investor relations page coming soon.</p>
+      <p className="text-zinc-500">
+        We are currently preparing our investor materials and outreach details.
+      </p>
+    </div>
+  </div>
+);
+
 const Footer = ({ activeTab, onNavigate }) => (
   <footer className="bg-zinc-950 border-t border-zinc-900">
     {activeTab === 'home' && (
@@ -1191,10 +1205,16 @@ const Footer = ({ activeTab, onNavigate }) => (
       <div className="max-w-4xl mx-auto flex flex-col gap-10">
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <Logo onNavigate={onNavigate} />
-          <div className="flex gap-6 text-sm font-bold tracking-widest">
-            <span className="hover:text-white cursor-pointer">INSTAGRAM</span>
-            <span className="hover:text-white cursor-pointer">CAREERS</span>
-            <span className="hover:text-white cursor-pointer">CONTACT</span>
+          <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
+            <span className="text-zinc-400 text-sm font-bold tracking-wide text-center">
+              tag us on social media #DogHub
+            </span>
+            <button
+              onClick={() => onNavigate('investors')}
+              className="text-zinc-500 hover:text-white transition-colors text-sm font-bold tracking-widest"
+            >
+              INVESTORS
+            </button>
           </div>
         </div>
         <div className="border-t border-zinc-900 pt-12 text-center flex flex-col items-center relative">
@@ -1291,6 +1311,8 @@ const DogHub = () => {
         return <AboutSection />;
       case 'merch':
         return <MerchSection addToCart={addToCart} />;
+      case 'investors':
+        return <InvestorsSection />;
       case 'customizer':
         return <LynnerCustomizer onNavigate={navigate} addToCart={addToCart} />;
       case 'cart':
