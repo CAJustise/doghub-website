@@ -1031,7 +1031,7 @@ const MenuList = ({
 };
 
 const LocationsList = () => (
-  <div className="py-16 px-4 bg-zinc-950 min-h-screen">
+  <div className="py-16 px-4 bg-zinc-950">
     <div className="max-w-4xl mx-auto">
       <h2 className="text-4xl font-black text-white tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
         Find Us
@@ -1085,7 +1085,7 @@ const LocationsList = () => (
 );
 
 const AboutSection = () => (
-  <div className="pt-32 pb-16 px-4 bg-zinc-950 min-h-screen">
+  <div className="pt-32 pb-16 px-4 bg-zinc-950">
     <div className="max-w-6xl mx-auto">
       <div className="grid md:grid-cols-2 gap-12 items-start">
         <div className="text-white">
@@ -1192,7 +1192,7 @@ const MerchSection = ({ addToCart }) => {
     );
 
   return (
-    <div className="py-16 px-4 bg-zinc-950 min-h-screen">
+    <div className="py-16 px-4 bg-zinc-950">
       <div className="max-w-4xl mx-auto">
         <h2 className="text-4xl font-black text-white tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
           Merch
@@ -1351,6 +1351,7 @@ const DogHub = () => {
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + item.price, 0);
+  const showStickyCart = cart.length > 0 && activeTab !== 'cart';
 
   const renderContent = () => {
     switch (activeTab) {
@@ -1388,7 +1389,11 @@ const DogHub = () => {
   };
 
   return (
-    <div className="bg-zinc-950 min-h-screen font-sans selection:bg-amber-500 selection:text-black pb-24">
+    <div
+      className={`bg-zinc-950 min-h-screen font-sans selection:bg-amber-500 selection:text-black ${
+        showStickyCart ? 'pb-24' : ''
+      }`}
+    >
       <Nav
         activeTab={activeTab}
         onNavigate={navigate}
@@ -1399,12 +1404,7 @@ const DogHub = () => {
       />
       {renderContent()}
       <Footer />
-      <StickyCart
-        cartTotal={cartTotal}
-        cartCount={cart.length}
-        onNavigate={navigate}
-        activeTab={activeTab}
-      />
+      <StickyCart cartTotal={cartTotal} cartCount={cart.length} onNavigate={navigate} activeTab={activeTab} />
     </div>
   );
 };
