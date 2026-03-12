@@ -310,7 +310,7 @@ const Nav = ({ activeTab, onNavigate, isMenuOpen, setIsMenuOpen, scrolled, cartC
           </div>
         </div>
 
-        {['LOCATIONS', 'ABOUT', 'MERCH'].map((item) => (
+        {['LOCATIONS', 'ABOUT', 'MERCH', 'INVESTORS'].map((item) => (
           <button
             key={item}
             onClick={() => onNavigate(item.toLowerCase())}
@@ -357,7 +357,7 @@ const Nav = ({ activeTab, onNavigate, isMenuOpen, setIsMenuOpen, scrolled, cartC
           MENU: DOGS
         </button>
 
-        {['LOCATIONS', 'ABOUT', 'MERCH'].map((item) => (
+        {['LOCATIONS', 'ABOUT', 'MERCH', 'INVESTORS'].map((item) => (
           <button
             key={item}
             onClick={() => onNavigate(item.toLowerCase())}
@@ -1205,17 +1205,9 @@ const Footer = ({ activeTab, onNavigate }) => (
       <div className="max-w-4xl mx-auto flex flex-col gap-10">
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <Logo onNavigate={onNavigate} />
-          <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
-            <span className="text-zinc-400 text-sm font-bold tracking-wide text-center">
-              tag us on social media #DogHub
-            </span>
-            <button
-              onClick={() => onNavigate('investors')}
-              className="text-zinc-500 hover:text-white transition-colors text-sm font-bold tracking-widest"
-            >
-              INVESTORS
-            </button>
-          </div>
+          <span className="text-zinc-400 text-sm font-bold tracking-widest text-center uppercase">
+            TAG US ON SOCIAL MEDIA #DOGHUB
+          </span>
         </div>
         <div className="border-t border-zinc-900 pt-12 text-center flex flex-col items-center relative">
           <img
