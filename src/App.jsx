@@ -18,6 +18,7 @@ import sullyMascot from './assets/sully-mascot.png';
 import hubHallImage from './assets/hubhall.jpg';
 import classicTeeImage from './assets/classic-tee.png';
 import baseballCapImage from './assets/baseball-cap.png';
+import tumblerImage from './assets/tumbler.png';
 
 // --- DATA CONSTANTS ---
 const dogItems = [
@@ -214,8 +215,16 @@ const merch = [
     price: 20,
     desc: "'47 adjustable Baseball Cap.",
     image: baseballCapImage,
+    imageAspect: 'wide',
   },
-  { id: 803, item: 'THE MUG', price: 12, desc: "Holds coffee. Doesn't leak." },
+  {
+    id: 803,
+    item: '20oz TUMBLER',
+    price: 12,
+    desc: 'To put liquid in, like a cup, only this has a lid! made of genuine plastic!!',
+    image: tumblerImage,
+    imageAspect: 'wide',
+  },
 ];
 
 const customizationData = {
@@ -1169,7 +1178,11 @@ const MerchSection = ({ addToCart }) => (
               <img
                 src={item.image}
                 alt={item.item}
-                className="aspect-square w-full object-cover bg-zinc-800 mb-4 border border-zinc-800"
+                className={`w-full bg-zinc-800 mb-4 border border-zinc-800 ${
+                  item.imageAspect === 'wide'
+                    ? 'aspect-video object-contain p-2'
+                    : 'aspect-square object-cover'
+                }`}
               />
             ) : (
               <div className="aspect-square bg-zinc-800 mb-4 flex items-center justify-center text-zinc-600 font-black text-2xl uppercase tracking-tighter group-hover:bg-zinc-700 transition-colors">
