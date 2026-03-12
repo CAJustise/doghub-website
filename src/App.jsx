@@ -1183,7 +1183,7 @@ const MerchSection = ({ addToCart }) => {
       <img
         src={item.image}
         alt={item.item}
-        className="w-full aspect-video object-contain bg-zinc-800 border border-zinc-800 p-2 mb-4"
+        className="w-full aspect-video object-contain mb-4"
       />
     ) : (
       <div className="w-full aspect-video bg-zinc-800 mb-4 flex items-center justify-center text-zinc-600 font-black text-2xl uppercase tracking-tighter group-hover:bg-zinc-700 transition-colors">
@@ -1195,12 +1195,12 @@ const MerchSection = ({ addToCart }) => {
     <div className="py-16 px-4 bg-zinc-950 min-h-screen">
       <div className="max-w-4xl mx-auto">
         <h2 className="text-4xl font-black text-white tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
-          Dry Goods
+          Merch
         </h2>
-        <p className="text-zinc-400 mb-8 max-w-lg">
-          You don't need this stuff. The food is the point. But if you want a shirt you can
-          actually work in, here they are.
-        </p>
+        <div className="text-zinc-400 mb-8 max-w-2xl space-y-2">
+          <p>Show Sully your love, eat him then wear him!</p>
+          <p>We'd love to see our Weiners on your Back, on your head and in your hand!!</p>
+        </div>
 
         {teeItem && (
           <div className="max-w-md mx-auto mb-8">
