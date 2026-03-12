@@ -1161,51 +1161,93 @@ const AboutSection = () => (
   </div>
 );
 
-const MerchSection = ({ addToCart }) => (
-  <div className="py-16 px-4 bg-zinc-950 min-h-screen">
-    <div className="max-w-4xl mx-auto">
-      <h2 className="text-4xl font-black text-white tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
-        Dry Goods
-      </h2>
-      <p className="text-zinc-400 mb-8 max-w-lg">
-        You don't need this stuff. The food is the point. But if you want a shirt you can
-        actually work in, here they are.
-      </p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {merch.map((item) => (
-          <div key={item.id} className="bg-zinc-900 border border-zinc-800 p-6 flex flex-col group">
-            {item.image ? (
-              <img
-                src={item.image}
-                alt={item.item}
-                className={`w-full bg-zinc-800 mb-4 border border-zinc-800 ${
-                  item.imageAspect === 'wide'
-                    ? 'aspect-video object-contain p-2'
-                    : 'aspect-square object-cover'
-                }`}
-              />
-            ) : (
-              <div className="aspect-square bg-zinc-800 mb-4 flex items-center justify-center text-zinc-600 font-black text-2xl uppercase tracking-tighter group-hover:bg-zinc-700 transition-colors">
-                [ {item.item} IMG ]
+const MerchSection = ({ addToCart }) => {
+  const teeItem = merch.find((item) => item.id === 801);
+  const accessoryItems = merch.filter((item) => item.id !== 801);
+
+  const renderSquareImage = (item) =>
+    item.image ? (
+      <img
+        src={item.image}
+        alt={item.item}
+        className="w-full aspect-square object-cover bg-zinc-800 mb-4 border border-zinc-800"
+      />
+    ) : (
+      <div className="aspect-square bg-zinc-800 mb-4 flex items-center justify-center text-zinc-600 font-black text-2xl uppercase tracking-tighter group-hover:bg-zinc-700 transition-colors">
+        [ {item.item} IMG ]
+      </div>
+    );
+
+  const renderWideImage = (item) =>
+    item.image ? (
+      <img
+        src={item.image}
+        alt={item.item}
+        className="w-full md:w-1/2 aspect-video object-contain bg-zinc-800 border border-zinc-800 p-2"
+      />
+    ) : (
+      <div className="w-full md:w-1/2 aspect-video bg-zinc-800 flex items-center justify-center text-zinc-600 font-black text-2xl uppercase tracking-tighter group-hover:bg-zinc-700 transition-colors">
+        [ {item.item} IMG ]
+      </div>
+    );
+
+  return (
+    <div className="py-16 px-4 bg-zinc-950 min-h-screen">
+      <div className="max-w-4xl mx-auto">
+        <h2 className="text-4xl font-black text-white tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
+          Dry Goods
+        </h2>
+        <p className="text-zinc-400 mb-8 max-w-lg">
+          You don't need this stuff. The food is the point. But if you want a shirt you can
+          actually work in, here they are.
+        </p>
+
+        {teeItem && (
+          <div className="max-w-md mx-auto mb-8">
+            <div className="bg-zinc-900 border border-zinc-800 p-6 flex flex-col group">
+              {renderSquareImage(teeItem)}
+              <div className="flex justify-between items-baseline mb-2">
+                <h3 className="text-white font-black text-xl uppercase">{teeItem.item}</h3>
+                <span className="text-amber-500 font-bold">${teeItem.price}</span>
               </div>
-            )}
-            <div className="flex justify-between items-baseline mb-2">
-              <h3 className="text-white font-black text-xl uppercase">{item.item}</h3>
-              <span className="text-amber-500 font-bold">${item.price}</span>
+              <p className="text-zinc-400 text-sm">{teeItem.desc}</p>
+              <button
+                onClick={() => addToCart(teeItem)}
+                className="mt-6 w-full py-3 border border-zinc-600 text-white font-bold uppercase text-sm hover:bg-white hover:text-black transition-colors"
+              >
+                Add to Cart
+              </button>
             </div>
-            <p className="text-zinc-400 text-sm">{item.desc}</p>
-            <button
-              onClick={() => addToCart(item)}
-              className="mt-6 w-full py-3 border border-zinc-600 text-white font-bold uppercase text-sm hover:bg-white hover:text-black transition-colors"
-            >
-              Add to Cart
-            </button>
           </div>
-        ))}
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {accessoryItems.map((item) => (
+            <div
+              key={item.id}
+              className="bg-zinc-900 border border-zinc-800 p-4 md:p-5 flex flex-col md:flex-row gap-4 items-stretch group"
+            >
+              {renderWideImage(item)}
+              <div className="flex flex-col md:w-1/2">
+                <div className="flex justify-between items-baseline mb-2 gap-2">
+                  <h3 className="text-white font-black text-xl uppercase">{item.item}</h3>
+                  <span className="text-amber-500 font-bold shrink-0">${item.price}</span>
+                </div>
+                <p className="text-zinc-400 text-sm">{item.desc}</p>
+                <button
+                  onClick={() => addToCart(item)}
+                  className="mt-auto mt-6 w-full py-3 border border-zinc-600 text-white font-bold uppercase text-sm hover:bg-white hover:text-black transition-colors"
+                >
+                  Add to Cart
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const InvestorsSection = () => (
   <div className="py-16 px-4 bg-zinc-950 min-h-screen text-white">
