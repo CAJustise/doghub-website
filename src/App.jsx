@@ -1091,21 +1091,22 @@ const AboutSection = () => (
       <div className="grid md:grid-cols-2 gap-12 items-start">
         <div className="text-white">
           <h2 className="text-4xl font-black tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
-            EXECUTION, NOT EXCUSES.
+            COMING HOME AGAIN
           </h2>
           <div className="prose prose-invert prose-lg">
             <p className="text-xl leading-relaxed font-medium text-zinc-300 mb-6">
-              DogHub started as a cart because we couldn't afford walls. We expanded because people
-              wouldn't stop showing up.
+              Born in Boston. Forged in California. Back home after 30 years in the industry to set
+              the standard.
             </p>
             <p className="text-zinc-400 mb-6">
-              We didn't reinvent the hot dog. The hot dog doesn't need reinventing. What needed
-              fixing was the execution. So we fixed it.
+              I've spent four decades watching restaurants overcomplicate simple food. The hot dog
+              doesn't need to be reinvented. What needed fixing was the execution. So we fixed it.
             </p>
             <p className="text-zinc-400 mb-6">
-              Our menu respects regions. Chicago dogs get the full build, sport peppers, celery
-              salt, the works. New York dogs get the snap and the sauerkraut. We don't do 'twists'
-              unless they actually make it better.
+              DogHub is what happens when you strip away the excuses and focus entirely on
+              technique. Our menu respects the regions that built the culture. Chicago dogs get the
+              full build. New York gets the snap. We brought the absolute best of it back to the
+              Hub. We don't do "twists" unless they actually make it better.
             </p>
             <div className="mt-12 border-t border-zinc-800 pt-8">
               <h3 className="font-bold text-amber-500 uppercase tracking-widest text-sm mb-2">
