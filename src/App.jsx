@@ -1205,9 +1205,14 @@ const Footer = ({ activeTab, onNavigate }) => (
       <div className="max-w-4xl mx-auto flex flex-col gap-10">
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <Logo onNavigate={onNavigate} />
-          <span className="text-zinc-400 text-sm font-bold tracking-widest text-center uppercase">
-            TAG US ON SOCIAL MEDIA #DOGHUB
-          </span>
+          <div className="flex flex-col items-center text-center leading-tight">
+            <span className="text-zinc-400 text-sm font-bold tracking-widest uppercase">
+              TAG US ON SOCIAL MEDIA
+            </span>
+            <span className="text-amber-500 text-2xl font-black tracking-widest uppercase">
+              #DOGHUB
+            </span>
+          </div>
         </div>
         <div className="border-t border-zinc-900 pt-12 text-center flex flex-col items-center relative">
           <img
