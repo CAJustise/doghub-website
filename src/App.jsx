@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Minus,
 } from 'lucide-react';
+import sullyMascot from './assets/sully-mascot.png';
 
 // --- DATA CONSTANTS ---
 const dogItems = [
@@ -696,8 +697,8 @@ const CartView = ({ cart, onRemove, onNavigate }) => {
         {cart.length === 0 ? (
           <div className="text-center py-20 bg-zinc-900 border border-zinc-800">
             <img
-              src="https://api.dicebear.com/7.x/shapes/svg?seed=Sully&backgroundColor=f59e0b"
-              alt="Sully Placeholder"
+              src={sullyMascot}
+              alt="DogHub mascot"
               className="w-32 h-32 mx-auto mb-6 drop-shadow-xl hover:scale-110 transition-transform rounded-xl"
             />
             <p className="text-zinc-500 text-xl font-bold uppercase tracking-tight">Your bag is empty.</p>
@@ -1198,8 +1199,8 @@ const Footer = ({ activeTab, onNavigate }) => (
         </div>
         <div className="border-t border-zinc-900 pt-12 text-center flex flex-col items-center relative">
           <img
-            src="https://api.dicebear.com/7.x/shapes/svg?seed=Sully&backgroundColor=f59e0b"
-            alt="Sully Placeholder"
+            src={sullyMascot}
+            alt="DogHub mascot"
             className="w-24 h-24 mb-6 drop-shadow-[0_0_15px_rgba(245,158,11,0.15)] rounded-xl"
           />
           <p className="text-white font-black text-xl md:text-3xl uppercase tracking-tighter mb-6 hover:text-amber-500 transition-colors cursor-default">
