@@ -15,6 +15,7 @@ import {
   Minus,
 } from 'lucide-react';
 import sullyMascot from './assets/sully-mascot.png';
+import emptyBagSully from './assets/empty-bag-sully.png';
 import hubHallImage from './assets/hubhall.jpg';
 import classicTeeImage from './assets/classic-tee.png';
 import baseballCapImage from './assets/baseball-cap.png';
@@ -720,8 +721,8 @@ const CartView = ({ cart, onRemove, onNavigate }) => {
         {cart.length === 0 ? (
           <div className="text-center py-20 bg-zinc-900 border border-zinc-800">
             <img
-              src={sullyMascot}
-              alt="DogHub mascot"
+              src={emptyBagSully}
+              alt="DogHub empty bag mascot"
               className="w-32 h-32 mx-auto mb-6 drop-shadow-xl hover:scale-110 transition-transform rounded-xl"
             />
             <p className="text-zinc-500 text-xl font-bold uppercase tracking-tight">Your bag is empty.</p>
