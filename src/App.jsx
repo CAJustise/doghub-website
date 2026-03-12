@@ -1263,25 +1263,11 @@ const InvestorsSection = () => (
   </div>
 );
 
-const Footer = ({ activeTab, onNavigate }) => (
+const Footer = () => (
   <footer className="bg-zinc-950 border-t border-zinc-900">
-    {activeTab === 'home' && (
-      <div className="bg-zinc-900 py-12 text-center border-b border-zinc-900">
-        <h3 className="text-white font-black text-3xl uppercase tracking-tighter mb-6">
-          Skip the line.
-        </h3>
-        <button
-          onClick={() => onNavigate('menu', 'dogs')}
-          className="bg-amber-500 text-black font-black text-xl px-12 py-4 uppercase tracking-wide hover:bg-amber-400 transition-colors shadow-lg shadow-amber-900/20"
-        >
-          Order Now
-        </button>
-      </div>
-    )}
     <div className="bg-black text-zinc-500 py-12 px-4">
       <div className="max-w-4xl mx-auto flex flex-col gap-10">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-          <Logo onNavigate={onNavigate} />
+        <div className="flex justify-center items-center">
           <div className="flex flex-col items-center text-center leading-tight">
             <span className="text-zinc-400 text-sm font-bold tracking-widest uppercase">
               TAG US ON SOCIAL MEDIA
@@ -1412,7 +1398,7 @@ const DogHub = () => {
         cartCount={cart.length}
       />
       {renderContent()}
-      <Footer activeTab={activeTab} onNavigate={navigate} />
+      <Footer />
       <StickyCart
         cartTotal={cartTotal}
         cartCount={cart.length}
