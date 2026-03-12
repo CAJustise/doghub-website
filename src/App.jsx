@@ -15,6 +15,7 @@ import {
   Minus,
 } from 'lucide-react';
 import sullyMascot from './assets/sully-mascot.png';
+import hubHallImage from './assets/hubhall.jpg';
 
 // --- DATA CONSTANTS ---
 const dogItems = [
@@ -193,8 +194,7 @@ const locations = [
     status: 'OPEN NOW',
     mapLink:
       'https://www.google.com/maps/search/?api=1&query=The+Hub+on+Causeway+80+Causeway+St+Boston+MA+02114',
-    image:
-      'https://images.unsplash.com/photo-1577717903315-1691ae25ab3f?q=80&w=2070&auto=format&fit=crop',
+    image: hubHallImage,
   },
 ];
 
