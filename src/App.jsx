@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import sullyMascot from './assets/sully-mascot.png';
 import hubHallImage from './assets/hubhall.jpg';
+import classicTeeImage from './assets/classic-tee.png';
 
 // --- DATA CONSTANTS ---
 const dogItems = [
@@ -199,7 +200,13 @@ const locations = [
 ];
 
 const merch = [
-  { id: 801, item: 'WORK SHIRT', price: 25, desc: 'Heavy cotton. Stains blend in.' },
+  {
+    id: 801,
+    item: 'CLASSIC TEE',
+    price: 25,
+    desc: 'Heavy cotton. Stains blend in.',
+    image: classicTeeImage,
+  },
   { id: 802, item: 'TRUCKER HAT', price: 20, desc: 'Mesh back. fits everyone.' },
   { id: 803, item: 'THE MUG', price: 12, desc: "Holds coffee. Doesn't leak." },
 ];
@@ -1151,9 +1158,17 @@ const MerchSection = ({ addToCart }) => (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {merch.map((item) => (
           <div key={item.id} className="bg-zinc-900 border border-zinc-800 p-6 flex flex-col group">
-            <div className="aspect-square bg-zinc-800 mb-4 flex items-center justify-center text-zinc-600 font-black text-2xl uppercase tracking-tighter group-hover:bg-zinc-700 transition-colors">
-              [ {item.item} IMG ]
-            </div>
+            {item.image ? (
+              <img
+                src={item.image}
+                alt={item.item}
+                className="aspect-square w-full object-cover bg-zinc-800 mb-4 border border-zinc-800"
+              />
+            ) : (
+              <div className="aspect-square bg-zinc-800 mb-4 flex items-center justify-center text-zinc-600 font-black text-2xl uppercase tracking-tighter group-hover:bg-zinc-700 transition-colors">
+                [ {item.item} IMG ]
+              </div>
+            )}
             <div className="flex justify-between items-baseline mb-2">
               <h3 className="text-white font-black text-xl uppercase">{item.item}</h3>
               <span className="text-amber-500 font-bold">${item.price}</span>
