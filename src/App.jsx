@@ -17,6 +17,7 @@ import {
 import sullyMascot from './assets/sully-mascot.png';
 import hubHallImage from './assets/hubhall.jpg';
 import classicTeeImage from './assets/classic-tee.png';
+import baseballCapImage from './assets/baseball-cap.png';
 
 // --- DATA CONSTANTS ---
 const dogItems = [
@@ -204,10 +205,16 @@ const merch = [
     id: 801,
     item: 'CLASSIC TEE',
     price: 25,
-    desc: 'Heavy cotton. Stains blend in.',
+    desc: 'Premium cotton tee with bold Sully front print. Soft feel, everyday fit.',
     image: classicTeeImage,
   },
-  { id: 802, item: 'TRUCKER HAT', price: 20, desc: 'Mesh back. fits everyone.' },
+  {
+    id: 802,
+    item: 'BASEBALL CAP',
+    price: 20,
+    desc: "'47 adjustable Baseball Cap.",
+    image: baseballCapImage,
+  },
   { id: 803, item: 'THE MUG', price: 12, desc: "Holds coffee. Doesn't leak." },
 ];
 
