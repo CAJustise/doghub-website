@@ -723,7 +723,7 @@ const CartView = ({ cart, onRemove, onNavigate }) => {
             <img
               src={emptyBagSully}
               alt="DogHub empty bag mascot"
-              className="w-32 h-32 mx-auto mb-6 drop-shadow-xl hover:scale-110 transition-transform rounded-xl"
+              className="w-40 h-40 mx-auto mb-6 drop-shadow-xl hover:scale-110 transition-transform rounded-xl"
             />
             <p className="text-zinc-500 text-xl font-bold uppercase tracking-tight">Your bag is empty.</p>
             <p className="text-zinc-600 mb-8">Fix that immediately.</p>
@@ -1282,7 +1282,7 @@ const Footer = () => (
           <img
             src={sullyMascot}
             alt="DogHub mascot"
-            className="w-24 h-24 mb-6 drop-shadow-[0_0_15px_rgba(245,158,11,0.15)] rounded-xl"
+            className="w-[7.5rem] h-[7.5rem] mb-6 drop-shadow-[0_0_15px_rgba(245,158,11,0.15)] rounded-xl"
           />
           <p className="text-white font-black text-xl md:text-3xl uppercase tracking-tighter mb-6 hover:text-amber-500 transition-colors cursor-default">
             We'd love to see our wieners in your mouth
