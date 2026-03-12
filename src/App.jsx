@@ -1183,10 +1183,10 @@ const MerchSection = ({ addToCart }) => {
       <img
         src={item.image}
         alt={item.item}
-        className="w-full md:w-1/2 aspect-video object-contain bg-zinc-800 border border-zinc-800 p-2"
+        className="w-full aspect-video object-contain bg-zinc-800 border border-zinc-800 p-2 mb-4"
       />
     ) : (
-      <div className="w-full md:w-1/2 aspect-video bg-zinc-800 flex items-center justify-center text-zinc-600 font-black text-2xl uppercase tracking-tighter group-hover:bg-zinc-700 transition-colors">
+      <div className="w-full aspect-video bg-zinc-800 mb-4 flex items-center justify-center text-zinc-600 font-black text-2xl uppercase tracking-tighter group-hover:bg-zinc-700 transition-colors">
         [ {item.item} IMG ]
       </div>
     );
@@ -1207,7 +1207,7 @@ const MerchSection = ({ addToCart }) => {
             <div className="bg-zinc-900 border border-zinc-800 p-6 flex flex-col group">
               {renderSquareImage(teeItem)}
               <div className="flex justify-between items-baseline mb-2">
-                <h3 className="text-white font-black text-xl uppercase">{teeItem.item}</h3>
+                <h3 className="text-white font-black text-xl">{teeItem.item}</h3>
                 <span className="text-amber-500 font-bold">${teeItem.price}</span>
               </div>
               <p className="text-zinc-400 text-sm">{teeItem.desc}</p>
@@ -1225,18 +1225,18 @@ const MerchSection = ({ addToCart }) => {
           {accessoryItems.map((item) => (
             <div
               key={item.id}
-              className="bg-zinc-900 border border-zinc-800 p-4 md:p-5 flex flex-col md:flex-row gap-4 items-stretch group"
+              className="bg-zinc-900 border border-zinc-800 p-4 md:p-5 flex flex-col group"
             >
               {renderWideImage(item)}
-              <div className="flex flex-col md:w-1/2">
+              <div className="flex flex-col">
                 <div className="flex justify-between items-baseline mb-2 gap-2">
-                  <h3 className="text-white font-black text-xl uppercase">{item.item}</h3>
+                  <h3 className="text-white font-black text-xl">{item.item}</h3>
                   <span className="text-amber-500 font-bold shrink-0">${item.price}</span>
                 </div>
                 <p className="text-zinc-400 text-sm">{item.desc}</p>
                 <button
                   onClick={() => addToCart(item)}
-                  className="mt-auto mt-6 w-full py-3 border border-zinc-600 text-white font-bold uppercase text-sm hover:bg-white hover:text-black transition-colors"
+                  className="mt-6 w-full py-3 border border-zinc-600 text-white font-bold uppercase text-sm hover:bg-white hover:text-black transition-colors"
                 >
                   Add to Cart
                 </button>
