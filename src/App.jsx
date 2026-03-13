@@ -1795,6 +1795,38 @@ const InvestorsSection = () => {
 
         <div className="space-y-8">
           <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">
+              THE LEXICON: CALCULATED PROVOCATION
+            </h3>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              Our brand language is engineered to be sticky, highly viral, and immediately
+              understood by our core demographic. We do not use these terms just for shock value.
+              They are calculated definitions for our product standards.
+            </p>
+
+            <h4 className="text-zinc-100 font-black uppercase tracking-wide mb-2">
+              Slut / "Slutty" (Culinary Standard)
+            </h4>
+            <p className="text-zinc-300 leading-relaxed mb-5">
+              In the restaurant industry this term is used to describe food that is intentionally
+              excessive, unapologetically decadent, and gloriously messy. This is high-impact
+              comfort food built on rich, gooey, heavy ingredients. It is anti-diet food. It
+              promises pure indulgence and drives repeat business because it taps directly into
+              visceral, late-night cravings.
+            </p>
+
+            <h4 className="text-zinc-100 font-black uppercase tracking-wide mb-2">
+              "Hand Job" (The Operational Standard)
+            </h4>
+            <p className="text-zinc-300 leading-relaxed">
+              In the restaurant industry this term is used to describe flawless, single-handed
+              eating. These menu items require zero utensils, zero table space, and zero friction.
+              It is peak grab-and-go efficiency packaged in an unforgettable brand statement. It
+              guarantees the customer gets immediate, portable gratification on the move.
+            </p>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
             <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">THE OPPORTUNITY</h3>
             <p className="text-zinc-300 leading-relaxed mb-4">
               Transit hubs and arena districts generate massive foot traffic but surprisingly limited
