@@ -530,6 +530,26 @@ const toSlugId = (value) =>
 
 const asArray = (value, fallback = []) => (Array.isArray(value) ? value : fallback);
 
+const normalizeHexColor = (value, fallback = '#f59e0b') => {
+  const color = String(value || '').trim();
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) return fallback;
+  if (color.length === 4) {
+    const [r, g, b] = color.slice(1).split('');
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return color.toLowerCase();
+};
+
+const getReadableTextColor = (backgroundColor) => {
+  const normalized = normalizeHexColor(backgroundColor);
+  const hex = normalized.slice(1);
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
+  return brightness > 150 ? '#111111' : '#f9fafb';
+};
+
 const dogIngredientSeeds = [
   ...customizationData.toppings.veg.map((ingredient) => ({ ...ingredient, category: 'dog-veg' })),
   ...customizationData.toppings.other.map((ingredient) => ({ ...ingredient, category: 'dog-other' })),
@@ -640,6 +660,7 @@ const createDefaultCrmData = () => {
       title: '',
       message: '',
       link: '',
+      backgroundColor: '#f59e0b',
     },
   };
 };
@@ -718,6 +739,10 @@ const loadCrmData = () => {
       promoBanner: {
         ...defaults.promoBanner,
         ...(parsed?.promoBanner || {}),
+        backgroundColor: normalizeHexColor(
+          parsed?.promoBanner?.backgroundColor,
+          defaults.promoBanner.backgroundColor
+        ),
       },
     };
   } catch (error) {
@@ -2639,17 +2664,53 @@ const Footer = ({ onOpenAdmin }) => (
 const PromoBanner = ({ promoBanner }) => {
   if (!promoBanner?.active || !promoBanner.message) return null;
 
+  const bannerColor = normalizeHexColor(promoBanner.backgroundColor, '#f59e0b');
+  const textColor = getReadableTextColor(bannerColor);
+  const segmentText = [promoBanner.title, promoBanner.message].filter(Boolean).join(' | ');
+
+  const renderSegment = (segmentKey) =>
+    promoBanner.link ? (
+      <a
+        key={segmentKey}
+        href={promoBanner.link}
+        className="shrink-0 px-6 py-2 font-black uppercase tracking-widest whitespace-nowrap hover:opacity-80 transition-opacity"
+        style={{ color: textColor }}
+      >
+        {segmentText}
+      </a>
+    ) : (
+      <span
+        key={segmentKey}
+        className="shrink-0 px-6 py-2 font-black uppercase tracking-widest whitespace-nowrap"
+        style={{ color: textColor }}
+      >
+        {segmentText}
+      </span>
+    );
+
   return (
-    <div className="bg-amber-500 text-black px-4 py-3 border-b-2 border-black">
-      <div className="max-w-4xl mx-auto flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-        {promoBanner.title && <span className="font-black uppercase tracking-widest text-xs">{promoBanner.title}</span>}
-        {promoBanner.link ? (
-          <a href={promoBanner.link} className="font-bold hover:underline">
-            {promoBanner.message}
-          </a>
-        ) : (
-          <span className="font-bold">{promoBanner.message}</span>
-        )}
+    <div
+      className="w-full overflow-hidden border-b-2"
+      style={{
+        backgroundColor: bannerColor,
+        borderBottomColor: textColor === '#111111' ? '#111111' : '#e5e7eb',
+      }}
+    >
+      <style>
+        {`
+          @keyframes doghub-promo-scroll {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-50%, 0, 0); }
+          }
+        `}
+      </style>
+      <div className="w-max min-w-full flex items-center" style={{ animation: 'doghub-promo-scroll 26s linear infinite' }}>
+        <div className="flex items-center">
+          {Array.from({ length: 6 }, (_, index) => renderSegment(`promo-a-${index}`))}
+        </div>
+        <div className="flex items-center" aria-hidden="true">
+          {Array.from({ length: 6 }, (_, index) => renderSegment(`promo-b-${index}`))}
+        </div>
       </div>
     </div>
   );
@@ -3870,6 +3931,33 @@ const AdminDashboard = ({ crmData, setCrmData, onLogout }) => {
               className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
               placeholder="Promo title (optional)"
             />
+            <div className="space-y-2">
+              <label className="text-xs uppercase font-bold tracking-widest text-zinc-400">Banner Color</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={normalizeHexColor(crmData.promoBanner?.backgroundColor || '#f59e0b')}
+                  onChange={(event) =>
+                    setCrmData((prevData) => ({
+                      ...prevData,
+                      promoBanner: { ...prevData.promoBanner, backgroundColor: event.target.value },
+                    }))
+                  }
+                  className="h-11 w-16 rounded border border-zinc-700 bg-zinc-950 p-1"
+                />
+                <input
+                  value={crmData.promoBanner?.backgroundColor || '#f59e0b'}
+                  onChange={(event) =>
+                    setCrmData((prevData) => ({
+                      ...prevData,
+                      promoBanner: { ...prevData.promoBanner, backgroundColor: event.target.value },
+                    }))
+                  }
+                  className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                  placeholder="#f59e0b"
+                />
+              </div>
+            </div>
             <textarea
               value={crmData.promoBanner?.message || ''}
               onChange={(event) =>
