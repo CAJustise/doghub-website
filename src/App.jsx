@@ -1489,17 +1489,12 @@ const CartView = ({
                       {item.desc && <p className="text-zinc-400 text-sm font-medium">{item.desc}</p>}
 
                       {quickie ? (
-                        <div className="mt-2 ml-3 flex items-center justify-between gap-2">
-                          <p className="text-amber-400 text-xs font-bold">
-                            ↳ Quickie: {quickie.sideName} + {quickie.drinkName}
-                          </p>
-                          <button
-                            onClick={() => onRemoveQuickie(item.cartId)}
-                            className="text-zinc-500 hover:text-red-400 text-[11px] font-bold uppercase tracking-wider"
-                          >
-                            Remove
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => setQuickieTargetCartId(item.cartId)}
+                          className="mt-2 ml-3 text-amber-400 hover:text-amber-300 text-xs font-bold text-left"
+                        >
+                          ↳ Quickie: {quickie.sideName} + {quickie.drinkName}
+                        </button>
                       ) : (
                         quickieEligible && (
                           <button
@@ -1563,6 +1558,13 @@ const CartView = ({
         <QuickiePickerModal
           sides={quickieSideOptions}
           drinks={quickieDrinkOptions}
+          initialSideId={normalizeQuickieSelection(quickieTargetItem.quickie)?.sideId}
+          initialDrinkId={normalizeQuickieSelection(quickieTargetItem.quickie)?.drinkId}
+          allowRemove={Boolean(normalizeQuickieSelection(quickieTargetItem.quickie))}
+          onRemove={() => {
+            onRemoveQuickie(quickieTargetItem.cartId);
+            setQuickieTargetCartId(null);
+          }}
           onClose={() => setQuickieTargetCartId(null)}
           onConfirm={(sideItem, drinkItem) => {
             onAttachQuickie(quickieTargetItem.cartId, sideItem, drinkItem);
@@ -1786,26 +1788,37 @@ const MenuItemCustomizerModal = ({
   );
 };
 
-const QuickiePickerModal = ({ sides, drinks, onClose, onConfirm }) => {
+const QuickiePickerModal = ({
+  sides,
+  drinks,
+  initialSideId = null,
+  initialDrinkId = null,
+  allowRemove = false,
+  onRemove,
+  onClose,
+  onConfirm,
+}) => {
   const sideOptions = asArray(sides);
   const drinkOptions = asArray(drinks);
-  const [selectedSideId, setSelectedSideId] = useState(sideOptions[0]?.id || '');
-  const [selectedDrinkId, setSelectedDrinkId] = useState(drinkOptions[0]?.id || '');
+  const resolveOptionId = (options, preferredId) => {
+    if (preferredId != null && options.some((option) => String(option.id) === String(preferredId))) {
+      return String(preferredId);
+    }
+    return options[0] ? String(options[0].id) : '';
+  };
+  const [selectedSideId, setSelectedSideId] = useState(() => resolveOptionId(sideOptions, initialSideId));
+  const [selectedDrinkId, setSelectedDrinkId] = useState(() => resolveOptionId(drinkOptions, initialDrinkId));
 
   useEffect(() => {
-    if (!sideOptions.some((option) => option.id === selectedSideId)) {
-      setSelectedSideId(sideOptions[0]?.id || '');
-    }
-  }, [sideOptions, selectedSideId]);
+    setSelectedSideId(resolveOptionId(sideOptions, initialSideId));
+  }, [sideOptions, initialSideId]);
 
   useEffect(() => {
-    if (!drinkOptions.some((option) => option.id === selectedDrinkId)) {
-      setSelectedDrinkId(drinkOptions[0]?.id || '');
-    }
-  }, [drinkOptions, selectedDrinkId]);
+    setSelectedDrinkId(resolveOptionId(drinkOptions, initialDrinkId));
+  }, [drinkOptions, initialDrinkId]);
 
-  const selectedSide = sideOptions.find((option) => option.id === selectedSideId) || null;
-  const selectedDrink = drinkOptions.find((option) => option.id === selectedDrinkId) || null;
+  const selectedSide = sideOptions.find((option) => String(option.id) === String(selectedSideId)) || null;
+  const selectedDrink = drinkOptions.find((option) => String(option.id) === String(selectedDrinkId)) || null;
   const canAddQuickie = Boolean(selectedSide && selectedDrink);
 
   const handleAddQuickie = () => {
@@ -1837,11 +1850,11 @@ const QuickiePickerModal = ({ sides, drinks, onClose, onConfirm }) => {
               </label>
               <select
                 value={selectedSideId}
-                onChange={(event) => setSelectedSideId(Number(event.target.value))}
+                onChange={(event) => setSelectedSideId(event.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
               >
                 {sideOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
+                  <option key={option.id} value={String(option.id)}>
                     {option.name}
                   </option>
                 ))}
@@ -1853,11 +1866,11 @@ const QuickiePickerModal = ({ sides, drinks, onClose, onConfirm }) => {
               </label>
               <select
                 value={selectedDrinkId}
-                onChange={(event) => setSelectedDrinkId(Number(event.target.value))}
+                onChange={(event) => setSelectedDrinkId(event.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
               >
                 {drinkOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
+                  <option key={option.id} value={String(option.id)}>
                     {option.name}
                   </option>
                 ))}
@@ -1867,13 +1880,32 @@ const QuickiePickerModal = ({ sides, drinks, onClose, onConfirm }) => {
         )}
 
         <div className="mt-8 border-t border-zinc-800 pt-6">
-          <button
-            onClick={handleAddQuickie}
-            disabled={!canAddQuickie}
-            className="w-full bg-white text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-500 transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed"
-          >
-            Add Quickie ($4)
-          </button>
+          {allowRemove ? (
+            <div className="grid sm:grid-cols-2 gap-3">
+              <button
+                onClick={onRemove}
+                disabled={!onRemove}
+                className="w-full border border-red-500/60 text-red-300 font-black text-sm py-4 uppercase tracking-wide hover:bg-red-500 hover:text-black transition-colors disabled:border-zinc-700 disabled:text-zinc-500 disabled:hover:bg-transparent disabled:hover:text-zinc-500 disabled:cursor-not-allowed"
+              >
+                Remove Quickie
+              </button>
+              <button
+                onClick={handleAddQuickie}
+                disabled={!canAddQuickie}
+                className="w-full bg-white text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-500 transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed"
+              >
+                Update Quickie ($4)
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleAddQuickie}
+              disabled={!canAddQuickie}
+              className="w-full bg-white text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-500 transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed"
+            >
+              Add Quickie ($4)
+            </button>
+          )}
         </div>
       </div>
     </div>
