@@ -20,6 +20,7 @@ import hubHallImage from './assets/hubhall.jpg';
 import classicTeeImage from './assets/classic-tee.png';
 import baseballCapImage from './assets/baseball-cap.png';
 import tumblerImage from './assets/tumbler.png';
+import doghubLogo from './assets/doghub-logo.svg';
 
 // --- DATA CONSTANTS ---
 const dogItems = [
@@ -279,13 +280,19 @@ const customizationData = {
 
 const Logo = ({ onNavigate }) => (
   <div
-    className="flex items-center tracking-tighter select-none cursor-pointer"
+    className="flex items-center select-none cursor-pointer"
     onClick={() => onNavigate('home')}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onNavigate('home');
+      }
+    }}
+    aria-label="Go to DogHub home"
   >
-    <span className="text-white font-bold text-3xl mr-1">Dog</span>
-    <span className="bg-amber-500 text-black font-bold text-3xl px-2 pb-1 pt-0.5 rounded-lg leading-none flex items-center justify-center">
-      hub
-    </span>
+    <img src={doghubLogo} alt="DogHub" className="h-10 w-auto" />
   </div>
 );
 
