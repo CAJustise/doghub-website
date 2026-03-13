@@ -551,23 +551,22 @@ const getReadableTextColor = (backgroundColor) => {
 };
 
 const getCustomItemKey = (item) => {
-  if (item?.customKey) return item.customKey;
+  const baseCustomKey = item?.customKey
+    ? item.customKey
+    : [
+        item?.id ?? 'custom',
+        item?.baseItemId ?? 'base',
+        item?.name || 'item',
+        item?.desc || item?.description || '',
+        item?.bun || '',
+        Number(item?.price || 0).toFixed(2),
+        asArray(item?.selectedIngredientIds)
+          .map((ingredientId) => String(ingredientId))
+          .sort()
+          .join('|'),
+      ].join('::');
 
-  const normalizedDesc = item?.desc || item?.description || '';
-  const selectedIngredientKey = asArray(item?.selectedIngredientIds)
-    .map((ingredientId) => String(ingredientId))
-    .sort()
-    .join('|');
-
-  return [
-    item?.id ?? 'custom',
-    item?.baseItemId ?? 'base',
-    item?.name || 'item',
-    normalizedDesc,
-    item?.bun || '',
-    Number(item?.price || 0).toFixed(2),
-    selectedIngredientKey,
-  ].join('::');
+  return `${baseCustomKey}::quickie:${item?.quickie?.key || 'no-quickie'}`;
 };
 
 const inferBunIdFromText = (bunText) => {
@@ -586,14 +585,70 @@ const getDescriptionWithBun = (item, bunOverride = null) => {
   return `${baseDesc} Bun: ${bunText}`;
 };
 
-const createQuickieItem = (sideItem, drinkItem) => ({
-  id: 991,
-  name: 'Make It a Quickie',
-  desc: `${sideItem.name} + ${drinkItem.name}`,
-  price: 4,
-  isCustom: true,
-  customKey: `quickie::${sideItem.id}::${drinkItem.id}`,
-});
+const normalizeQuickieSelection = (quickie) => {
+  if (!quickie) return null;
+
+  const sideId = quickie.sideId ?? quickie.side?.id ?? null;
+  const drinkId = quickie.drinkId ?? quickie.drink?.id ?? null;
+  const sideName = quickie.sideName ?? quickie.side?.name ?? '';
+  const drinkName = quickie.drinkName ?? quickie.drink?.name ?? '';
+  const price = Number(quickie.price ?? 4);
+  const key = quickie.key || `quickie::${sideId ?? sideName}::${drinkId ?? drinkName}`;
+
+  return {
+    key,
+    sideId,
+    drinkId,
+    sideName,
+    drinkName,
+    price,
+  };
+};
+
+const createQuickieSelection = (sideItem, drinkItem) =>
+  normalizeQuickieSelection({
+    sideId: sideItem?.id,
+    drinkId: drinkItem?.id,
+    sideName: sideItem?.name,
+    drinkName: drinkItem?.name,
+    price: 4,
+    key: `quickie::${sideItem?.id}::${drinkItem?.id}`,
+  });
+
+const getQuickieKey = (item) => normalizeQuickieSelection(item?.quickie)?.key || 'no-quickie';
+
+const getItemUnitPrice = (item) => {
+  const basePrice = Number(item?.price || 0);
+  const quickiePrice = Number(normalizeQuickieSelection(item?.quickie)?.price || 0);
+  return basePrice + quickiePrice;
+};
+
+const isQuickieEligibleCartItem = (item) =>
+  Boolean(item?.quickieEligible || item?.bun || item?.baseItemId || item?.id === 99);
+
+const getCartMergeKey = (item) => {
+  if (item?.isCustom) return `custom::${getCustomItemKey(item)}`;
+  return `standard::${item?.id}::${getQuickieKey(item)}`;
+};
+
+const mergeCartItemsByKey = (items) => {
+  const mergedMap = new Map();
+
+  asArray(items).forEach((item) => {
+    const key = getCartMergeKey(item);
+    const qty = item.qty || 1;
+
+    if (!mergedMap.has(key)) {
+      mergedMap.set(key, { ...item, qty });
+      return;
+    }
+
+    const existing = mergedMap.get(key);
+    mergedMap.set(key, { ...existing, qty: (existing.qty || 1) + qty });
+  });
+
+  return Array.from(mergedMap.values());
+};
 
 const normalizePromoScrollSeconds = (value, fallback = 78) => {
   const numericValue = Number(value);
@@ -1052,8 +1107,10 @@ const LynnerCustomizer = ({ onNavigate, addToCart }) => {
       id: 99,
       name: 'The Lynner',
       desc: [selectedDog.name, selectedBun.name, ...toppingNames].join(', '),
+      bun: selectedBun.name,
       price: totalPrice,
       isCustom: true,
+      quickieEligible: true,
       customKey: `lynner::${selectedDog.id}::${selectedBun.id}::${sortedToppingNames.join('|')}`,
     });
     onNavigate('menu', 'dogs');
@@ -1272,6 +1329,10 @@ const CartView = ({
   onRemove,
   onIncrementItem,
   onDecrementItem,
+  onAttachQuickie,
+  onRemoveQuickie,
+  quickieSideOptions,
+  quickieDrinkOptions,
   onNavigate,
   selectedLocation,
   isOrderAheadEnabled,
@@ -1284,7 +1345,9 @@ const CartView = ({
   onPickupTimeSlotChange,
   pickupTimeError,
 }) => {
-  const cartTotal = cart.reduce((acc, item) => acc + item.price * (item.qty || 1), 0);
+  const [quickieTargetCartId, setQuickieTargetCartId] = useState(null);
+  const quickieTargetItem = cart.find((item) => item.cartId === quickieTargetCartId) || null;
+  const cartTotal = cart.reduce((acc, item) => acc + getItemUnitPrice(item) * (item.qty || 1), 0);
 
   return (
     <div className="py-24 px-4 bg-zinc-950 min-h-screen text-white">
@@ -1407,48 +1470,68 @@ const CartView = ({
         ) : (
           <div className="space-y-6">
             <div className="space-y-4">
-              {cart.map((item) => (
-                <div
-                  key={item.cartId}
-                  className="bg-zinc-900 p-6 border border-zinc-800 flex justify-between items-start group hover:border-zinc-700 transition-colors"
-                >
-                  <div className="flex-1 pr-4">
-                    <h3 className="font-black text-xl uppercase tracking-tight mb-1 flex items-center gap-2">
-                      {item.name || item.item}
-                      <span className="text-xs font-bold tracking-widest text-zinc-500">
-                        x{item.qty || 1}
-                      </span>
-                    </h3>
-                    {item.desc && <p className="text-zinc-400 text-sm font-medium">{item.desc}</p>}
-                  </div>
-                  <div className="flex flex-col items-end gap-3">
-                    <span className="font-black text-lg">${(item.price * (item.qty || 1)).toFixed(2)}</span>
-                    <div className="flex items-center bg-zinc-800 rounded text-white">
+              {cart.map((item) => {
+                const qty = item.qty || 1;
+                const lineTotal = getItemUnitPrice(item) * qty;
+                const quickie = normalizeQuickieSelection(item.quickie);
+                const quickieEligible = isQuickieEligibleCartItem(item);
+
+                return (
+                  <div
+                    key={item.cartId}
+                    className="bg-zinc-900 p-6 border border-zinc-800 flex justify-between items-start group hover:border-zinc-700 transition-colors"
+                  >
+                    <div className="flex-1 pr-4">
+                      <h3 className="font-black text-xl uppercase tracking-tight mb-1 flex items-center gap-2">
+                        {item.name || item.item}
+                        <span className="text-xs font-bold tracking-widest text-zinc-500">x{qty}</span>
+                      </h3>
+                      {item.desc && <p className="text-zinc-400 text-sm font-medium">{item.desc}</p>}
+
+                      {quickie ? (
+                        <div className="mt-2 ml-3 flex items-center justify-between gap-2">
+                          <p className="text-amber-400 text-xs font-bold">
+                            ↳ Quickie: {quickie.sideName} + {quickie.drinkName}
+                          </p>
+                          <button
+                            onClick={() => onRemoveQuickie(item.cartId)}
+                            className="text-zinc-500 hover:text-red-400 text-[11px] font-bold uppercase tracking-wider"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        quickieEligible && (
+                          <button
+                            onClick={() => setQuickieTargetCartId(item.cartId)}
+                            className="mt-2 ml-3 text-amber-500 hover:text-amber-400 text-xs font-bold"
+                          >
+                            ↳ Add Quickie +$4
+                          </button>
+                        )
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-3">
+                      <span className="font-black text-lg">${lineTotal.toFixed(2)}</span>
+                      <div className="flex items-center bg-zinc-800 rounded text-white">
+                        <button onClick={() => onDecrementItem(item.cartId)} className="p-2 hover:text-amber-500">
+                          <Minus size={14} />
+                        </button>
+                        <span className="font-black text-amber-500 text-sm w-5 text-center">{qty}</span>
+                        <button onClick={() => onIncrementItem(item)} className="p-2 hover:text-amber-500">
+                          <Plus size={14} />
+                        </button>
+                      </div>
                       <button
-                        onClick={() => onDecrementItem(item.cartId)}
-                        className="p-2 hover:text-amber-500"
+                        onClick={() => onRemove(item.cartId)}
+                        className="text-zinc-600 hover:text-red-500 transition-colors p-1"
                       >
-                        <Minus size={14} />
-                      </button>
-                      <span className="font-black text-amber-500 text-sm w-5 text-center">
-                        {item.qty || 1}
-                      </span>
-                      <button
-                        onClick={() => onIncrementItem(item)}
-                        className="p-2 hover:text-amber-500"
-                      >
-                        <Plus size={14} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
-                    <button
-                      onClick={() => onRemove(item.cartId)}
-                      className="text-zinc-600 hover:text-red-500 transition-colors p-1"
-                    >
-                      <Trash2 size={18} />
-                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="border-t border-zinc-800 pt-8 mt-8">
@@ -1476,6 +1559,17 @@ const CartView = ({
           </div>
         )}
       </div>
+      {quickieTargetItem && (
+        <QuickiePickerModal
+          sides={quickieSideOptions}
+          drinks={quickieDrinkOptions}
+          onClose={() => setQuickieTargetCartId(null)}
+          onConfirm={(sideItem, drinkItem) => {
+            onAttachQuickie(quickieTargetItem.cartId, sideItem, drinkItem);
+            setQuickieTargetCartId(null);
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -1487,7 +1581,6 @@ const MenuItemCustomizerModal = ({
   quickieDrinks,
   onClose,
   onAddToCart,
-  onAddBundleToCart,
 }) => {
   const allowedIngredients = asArray(ingredients)
     .filter((ingredient) => item?.allowedIngredientIds?.includes(ingredient.id) && ingredient.active !== false)
@@ -1562,6 +1655,7 @@ const MenuItemCustomizerModal = ({
       isCustom: true,
       baseItemId: item.id,
       bun: selectedBunName || item?.bun,
+      quickieEligible: true,
       selectedIngredientIds: sortedSelectedIngredientIds,
       customKey: `custom::${item.id}::bun:${selectedBunId}::${sortedSelectedIngredientIds.join('|')}`,
     };
@@ -1575,8 +1669,10 @@ const MenuItemCustomizerModal = ({
   const handleAddCustomizedQuickie = (sideItem, drinkItem) => {
     if (!sideItem || !drinkItem) return;
     const customizedItem = buildCustomizedItem();
-    const quickieItem = createQuickieItem(sideItem, drinkItem);
-    onAddBundleToCart([customizedItem, quickieItem]);
+    onAddToCart({
+      ...customizedItem,
+      quickie: createQuickieSelection(sideItem, drinkItem),
+    });
     onClose();
   };
 
@@ -1788,7 +1884,6 @@ const MenuList = ({
   onNavigate,
   cart,
   addToCart,
-  addBundleToCart,
   removeOneFromCart,
   addCustomizedItemToCart,
   activeCategory,
@@ -1833,7 +1928,7 @@ const MenuList = ({
 
   const ItemCard = ({ item }) => {
     const qtyInCart = cart.reduce(
-      (acc, c) => (c.id === item.id && !c.isCustom ? acc + (c.qty || 1) : acc),
+      (acc, c) => (c.id === item.id && !c.isCustom && !c.quickie ? acc + (c.qty || 1) : acc),
       0
     );
     const customCount = item.isCustom
@@ -1940,7 +2035,7 @@ const MenuList = ({
 
   const CompactRow = ({ item }) => {
     const qtyInCart = cart.reduce(
-      (acc, c) => (c.id === item.id && !c.isCustom ? acc + (c.qty || 1) : acc),
+      (acc, c) => (c.id === item.id && !c.isCustom && !c.quickie ? acc + (c.qty || 1) : acc),
       0
     );
     const addDisabled = isItemAddDisabled(item);
@@ -2215,7 +2310,6 @@ const MenuList = ({
             quickieDrinks={quickieDrinkOptions}
             onClose={() => setCustomizingItem(null)}
             onAddToCart={addCustomizedItemToCart}
-            onAddBundleToCart={addBundleToCart}
           />
         )}
         {isQuickiePickerOpen && (
@@ -2228,7 +2322,10 @@ const MenuList = ({
             }}
             onConfirm={(sideItem, drinkItem) => {
               if (!quickieBaseItem) return;
-              addBundleToCart([quickieBaseItem, createQuickieItem(sideItem, drinkItem)]);
+              addToCart({
+                ...quickieBaseItem,
+                quickie: createQuickieSelection(sideItem, drinkItem),
+              });
               setIsQuickiePickerOpen(false);
               setQuickieBaseItem(null);
             }}
@@ -4366,6 +4463,7 @@ const DogHub = () => {
     water: asArray(crmData?.menu?.drinks?.water).filter((item) => item.active !== false),
     beer: asArray(crmData?.menu?.drinks?.beer).filter((item) => item.active !== false),
   };
+  const quickieDrinkOptions = [...menuDrinks.soda, ...menuDrinks.water];
   const menuBreakfastSluts = asArray(crmData?.menu?.breakfast?.sluts).filter((item) => item.active !== false);
   const menuBreakfastHandJobs = asArray(crmData?.menu?.breakfast?.handJobs).filter(
     (item) => item.active !== false
@@ -4498,7 +4596,15 @@ const DogHub = () => {
   const addItemToCart = (item) => {
     const normalizedName = item.name || item.item || 'ITEM';
     const normalizedDesc = getDescriptionWithBun(item);
-    const normalizedItem = { ...item, name: normalizedName, desc: normalizedDesc, qty: 1 };
+    const normalizedQuickie = normalizeQuickieSelection(item.quickie);
+    const normalizedItem = {
+      ...item,
+      name: normalizedName,
+      desc: normalizedDesc,
+      quickie: normalizedQuickie,
+      quickieEligible: item.quickieEligible ?? isQuickieEligibleCartItem(item),
+      qty: 1,
+    };
 
     setCart((prevCart) => {
       if (normalizedItem.isCustom) {
@@ -4517,7 +4623,10 @@ const DogHub = () => {
       }
 
       const existingIndex = prevCart.findIndex(
-        (cartItem) => cartItem.id === normalizedItem.id && !cartItem.isCustom
+        (cartItem) =>
+          cartItem.id === normalizedItem.id &&
+          !cartItem.isCustom &&
+          getQuickieKey(cartItem) === getQuickieKey(normalizedItem)
       );
 
       if (existingIndex === -1) {
@@ -4695,13 +4804,9 @@ const DogHub = () => {
     addItemsToCart([item]);
   };
 
-  const addBundleToCart = (items) => {
-    addItemsToCart(items);
-  };
-
   const removeOneFromCart = (itemId) => {
     setCart((prevCart) => {
-      const itemIndex = prevCart.findIndex((item) => item.id === itemId && !item.isCustom);
+      const itemIndex = prevCart.findIndex((item) => item.id === itemId && !item.isCustom && !item.quickie);
       if (itemIndex === -1) return prevCart;
 
       const item = prevCart[itemIndex];
@@ -4714,6 +4819,30 @@ const DogHub = () => {
       return prevCart.map((cartItem, index) =>
         index === itemIndex ? { ...cartItem, qty: currentQty - 1 } : cartItem
       );
+    });
+  };
+
+  const attachQuickieToCartItem = (cartId, sideItem, drinkItem) => {
+    const quickie = createQuickieSelection(sideItem, drinkItem);
+    if (!quickie) return;
+
+    setCart((prevCart) => {
+      const updatedCart = prevCart.map((item) =>
+        item.cartId === cartId ? { ...item, quickie, quickieEligible: true } : item
+      );
+      return mergeCartItemsByKey(updatedCart);
+    });
+  };
+
+  const removeQuickieFromCartItem = (cartId) => {
+    setCart((prevCart) => {
+      const updatedCart = prevCart.map((item) => {
+        if (item.cartId !== cartId) return item;
+        const nextItem = { ...item };
+        delete nextItem.quickie;
+        return nextItem;
+      });
+      return mergeCartItemsByKey(updatedCart);
     });
   };
 
@@ -4739,7 +4868,7 @@ const DogHub = () => {
     setCart((prevCart) => prevCart.filter((item) => item.cartId !== cartId));
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + item.price * (item.qty || 1), 0);
+  const cartTotal = cart.reduce((acc, item) => acc + getItemUnitPrice(item) * (item.qty || 1), 0);
   const cartCount = cart.reduce((acc, item) => acc + (item.qty || 1), 0);
   const showStickyCart = cartCount > 0 && activeTab !== 'cart';
 
@@ -4751,7 +4880,6 @@ const DogHub = () => {
             onNavigate={navigate}
             cart={cart}
             addToCart={addToCart}
-            addBundleToCart={addBundleToCart}
             removeOneFromCart={removeOneFromCart}
             addCustomizedItemToCart={addToCart}
             activeCategory={menuSubTab}
@@ -4810,6 +4938,10 @@ const DogHub = () => {
             onRemove={removeFromCart}
             onIncrementItem={addToCart}
             onDecrementItem={decrementCartItemByCartId}
+            onAttachQuickie={attachQuickieToCartItem}
+            onRemoveQuickie={removeQuickieFromCartItem}
+            quickieSideOptions={menuSides}
+            quickieDrinkOptions={quickieDrinkOptions}
             onNavigate={navigate}
             selectedLocation={selectedLocation}
             isOrderAheadEnabled={isOrderAheadEnabled}
