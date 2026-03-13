@@ -20,7 +20,6 @@ import hubHallImage from './assets/hubhall.jpg';
 import classicTeeImage from './assets/classic-tee.png';
 import baseballCapImage from './assets/baseball-cap.png';
 import tumblerImage from './assets/tumbler.png';
-import doghubLogo from './assets/doghub-logo.svg';
 
 // --- DATA CONSTANTS ---
 const dogItems = [
@@ -279,21 +278,17 @@ const customizationData = {
 // --- SUB-COMPONENTS ---
 
 const Logo = ({ onNavigate }) => (
-  <div
-    className="flex items-center select-none cursor-pointer"
+  <button
+    type="button"
+    className="flex items-center gap-2 bg-transparent border-0 p-0 select-none leading-none cursor-pointer"
     onClick={() => onNavigate('home')}
-    role="button"
-    tabIndex={0}
-    onKeyDown={(event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        onNavigate('home');
-      }
-    }}
     aria-label="Go to DogHub home"
   >
-    <img src={doghubLogo} alt="DogHub" className="w-44 md:w-56 h-auto object-contain" />
-  </div>
+    <span className="bg-amber-500 text-black font-black text-3xl md:text-4xl px-2.5 pb-1 rounded-xl tracking-tight">
+      Dog
+    </span>
+    <span className="text-zinc-200 font-black text-3xl md:text-4xl tracking-tight">Hub</span>
+  </button>
 );
 
 const Nav = ({ activeTab, onNavigate, isMenuOpen, setIsMenuOpen, scrolled, cartCount }) => (
