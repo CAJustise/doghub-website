@@ -17,6 +17,8 @@ import {
 import sullyMascot from './assets/sully-mascot.png';
 import emptyBagSully from './assets/empty-bag-sully.png';
 import hubHallImage from './assets/hubhall.jpg';
+import southStationImage from './assets/south-station.jpg';
+import backBayStationImage from './assets/back-bay-station.png';
 import classicTeeImage from './assets/classic-tee.png';
 import baseballCapImage from './assets/baseball-cap.png';
 import tumblerImage from './assets/tumbler.png';
@@ -199,6 +201,22 @@ const locations = [
     mapLink:
       'https://www.google.com/maps/search/?api=1&query=The+Hub+on+Causeway+80+Causeway+St+Boston+MA+02114',
     image: hubHallImage,
+  },
+  {
+    area: 'SOUTH STATION',
+    address: '2 South Station, Boston, MA 02110',
+    hours: 'Daily: 5am - Midnight',
+    status: 'OPEN NOW',
+    mapLink: 'https://www.google.com/maps/search/?api=1&query=2+South+Station+Boston+MA+02110',
+    image: southStationImage,
+  },
+  {
+    area: 'BACK BAY STATION',
+    address: '145 Dartmouth Street, Boston, MA 02116',
+    hours: 'Daily: 5am - Midnight',
+    status: 'OPEN NOW',
+    mapLink: 'https://www.google.com/maps/search/?api=1&query=145+Dartmouth+Street+Boston+MA+02116',
+    image: backBayStationImage,
   },
 ];
 
