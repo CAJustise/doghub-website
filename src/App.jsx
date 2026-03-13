@@ -19,6 +19,7 @@ import emptyBagSully from './assets/empty-bag-sully.png';
 import hubHallImage from './assets/hubhall.jpg';
 import southStationImage from './assets/south-station.jpg';
 import backBayStationImage from './assets/back-bay-station.png';
+import faneuilHallMarketplaceImage from './assets/faneuil-hall-marketplace.jpeg';
 import classicTeeImage from './assets/classic-tee.png';
 import baseballCapImage from './assets/baseball-cap.png';
 import tumblerImage from './assets/tumbler.png';
@@ -213,6 +214,13 @@ const locations = [
     hours: 'Daily: 5am - Midnight',
     status: 'OPEN NOW',
     image: backBayStationImage,
+  },
+  {
+    area: 'FANEUIL HALL MARKETPLACE',
+    address: '4 S Market St, Boston, MA 02109',
+    hours: '10am - 9pm',
+    status: 'OPEN NOW',
+    image: faneuilHallMarketplaceImage,
   },
 ];
 
@@ -1074,7 +1082,7 @@ const LocationsList = () => (
       <h2 className="text-4xl font-black text-white tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
         Find Us
       </h2>
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {locations.map((loc, idx) => (
           (() => {
             const directionsLink = getDirectionsLink(loc.address);
