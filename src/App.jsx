@@ -586,6 +586,15 @@ const getDescriptionWithBun = (item, bunOverride = null) => {
   return `${baseDesc} Bun: ${bunText}`;
 };
 
+const createQuickieItem = (sideItem, drinkItem) => ({
+  id: 991,
+  name: 'Make It a Quickie',
+  desc: `${sideItem.name} + ${drinkItem.name}`,
+  price: 4,
+  isCustom: true,
+  customKey: `quickie::${sideItem.id}::${drinkItem.id}`,
+});
+
 const normalizePromoScrollSeconds = (value, fallback = 78) => {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return fallback;
@@ -1471,15 +1480,26 @@ const CartView = ({
   );
 };
 
-const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) => {
+const MenuItemCustomizerModal = ({
+  item,
+  ingredients,
+  quickieSides,
+  quickieDrinks,
+  onClose,
+  onAddToCart,
+  onAddBundleToCart,
+}) => {
   const allowedIngredients = asArray(ingredients)
     .filter((ingredient) => item?.allowedIngredientIds?.includes(ingredient.id) && ingredient.active !== false)
     .sort((a, b) => a.name.localeCompare(b.name));
   const bunOptions = asArray(customizationData.buns);
+  const quickieSideOptions = asArray(quickieSides);
+  const quickieDrinkOptions = asArray(quickieDrinks);
   const baseIngredientIds = asArray(item?.baseIngredientIds);
   const defaultBunId = item?.defaultBunId || inferBunIdFromText(item?.bun);
   const [selectedIngredientIds, setSelectedIngredientIds] = useState(baseIngredientIds);
   const [selectedBunId, setSelectedBunId] = useState(defaultBunId);
+  const [isQuickiePickerOpen, setIsQuickiePickerOpen] = useState(false);
 
   useEffect(() => {
     setSelectedIngredientIds(baseIngredientIds);
@@ -1531,10 +1551,10 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
     return changes.join(' | ');
   };
 
-  const handleAddCustomizedItem = () => {
+  const buildCustomizedItem = () => {
     const customizationDesc = buildCustomizationDesc();
     const sortedSelectedIngredientIds = [...selectedIngredientIds].sort();
-    onAddToCart({
+    return {
       id: item.id,
       name: `${item.name} (Custom)`,
       desc: customizationDesc || item.desc,
@@ -1544,7 +1564,19 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
       bun: selectedBunName || item?.bun,
       selectedIngredientIds: sortedSelectedIngredientIds,
       customKey: `custom::${item.id}::bun:${selectedBunId}::${sortedSelectedIngredientIds.join('|')}`,
-    });
+    };
+  };
+
+  const handleAddCustomizedItem = () => {
+    onAddToCart(buildCustomizedItem());
+    onClose();
+  };
+
+  const handleAddCustomizedQuickie = (sideItem, drinkItem) => {
+    if (!sideItem || !drinkItem) return;
+    const customizedItem = buildCustomizedItem();
+    const quickieItem = createQuickieItem(sideItem, drinkItem);
+    onAddBundleToCart([customizedItem, quickieItem]);
     onClose();
   };
 
@@ -1629,19 +1661,36 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
             <span className="text-zinc-400 font-bold uppercase tracking-widest text-sm">Total</span>
             <span className="text-3xl font-black text-amber-500">${totalPrice.toFixed(2)}</span>
           </div>
-          <button
-            onClick={handleAddCustomizedItem}
-            className="w-full bg-white text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-500 transition-colors"
-          >
-            Add Custom To Bag
-          </button>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <button
+              onClick={handleAddCustomizedItem}
+              className="w-full bg-white text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-500 transition-colors"
+            >
+              Add Custom To Bag
+            </button>
+            <button
+              onClick={() => setIsQuickiePickerOpen(true)}
+              disabled={quickieSideOptions.length === 0 || quickieDrinkOptions.length === 0}
+              className="w-full bg-amber-500 text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-400 transition-colors disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed"
+            >
+              Make It A Quickie +$4
+            </button>
+          </div>
         </div>
       </div>
+      {isQuickiePickerOpen && (
+        <QuickiePickerModal
+          sides={quickieSideOptions}
+          drinks={quickieDrinkOptions}
+          onClose={() => setIsQuickiePickerOpen(false)}
+          onConfirm={handleAddCustomizedQuickie}
+        />
+      )}
     </div>
   );
 };
 
-const QuickiePickerModal = ({ sides, drinks, onClose, onAddQuickie }) => {
+const QuickiePickerModal = ({ sides, drinks, onClose, onConfirm }) => {
   const sideOptions = asArray(sides);
   const drinkOptions = asArray(drinks);
   const [selectedSideId, setSelectedSideId] = useState(sideOptions[0]?.id || '');
@@ -1665,17 +1714,7 @@ const QuickiePickerModal = ({ sides, drinks, onClose, onAddQuickie }) => {
 
   const handleAddQuickie = () => {
     if (!selectedSide || !selectedDrink) return;
-
-    onAddQuickie({
-      id: 991,
-      name: 'Make It a Quickie',
-      desc: `${selectedSide.name} + ${selectedDrink.name}`,
-      price: 4,
-      isCustom: true,
-      customKey: `quickie::${selectedSide.id}::${selectedDrink.id}`,
-    });
-
-    onClose();
+    onConfirm(selectedSide, selectedDrink);
   };
 
   return (
@@ -1749,6 +1788,7 @@ const MenuList = ({
   onNavigate,
   cart,
   addToCart,
+  addBundleToCart,
   removeOneFromCart,
   addCustomizedItemToCart,
   activeCategory,
@@ -1775,6 +1815,7 @@ const MenuList = ({
 }) => {
   const [customizingItem, setCustomizingItem] = useState(null);
   const [isQuickiePickerOpen, setIsQuickiePickerOpen] = useState(false);
+  const [quickieBaseItem, setQuickieBaseItem] = useState(null);
   const quickieDrinkOptions = [
     ...asArray(drinksMenuItems?.soda),
     ...asArray(drinksMenuItems?.water),
@@ -1836,7 +1877,10 @@ const MenuList = ({
             <div className="w-full flex flex-col sm:flex-row sm:items-stretch gap-2">
               {canShowQuickieButton && (
                 <button
-                  onClick={() => setIsQuickiePickerOpen(true)}
+                  onClick={() => {
+                    setQuickieBaseItem(item);
+                    setIsQuickiePickerOpen(true);
+                  }}
                   disabled={addDisabled || !isQuickieAvailable}
                   className="w-full sm:w-44 bg-amber-500 text-black font-black rounded px-3 py-3 flex flex-col items-center justify-center text-center transition-colors hover:bg-amber-400 sm:min-h-[88px] disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed"
                 >
@@ -2167,16 +2211,27 @@ const MenuList = ({
           <MenuItemCustomizerModal
             item={customizingItem}
             ingredients={ingredientOptions}
+            quickieSides={sidesMenuItems}
+            quickieDrinks={quickieDrinkOptions}
             onClose={() => setCustomizingItem(null)}
             onAddToCart={addCustomizedItemToCart}
+            onAddBundleToCart={addBundleToCart}
           />
         )}
         {isQuickiePickerOpen && (
           <QuickiePickerModal
             sides={sidesMenuItems}
             drinks={quickieDrinkOptions}
-            onClose={() => setIsQuickiePickerOpen(false)}
-            onAddQuickie={addToCart}
+            onClose={() => {
+              setIsQuickiePickerOpen(false);
+              setQuickieBaseItem(null);
+            }}
+            onConfirm={(sideItem, drinkItem) => {
+              if (!quickieBaseItem) return;
+              addBundleToCart([quickieBaseItem, createQuickieItem(sideItem, drinkItem)]);
+              setIsQuickiePickerOpen(false);
+              setQuickieBaseItem(null);
+            }}
           />
         )}
       </div>
@@ -4297,7 +4352,7 @@ const DogHub = () => {
   const [menuSubTab, setMenuSubTab] = useState('breakfast');
   const [selectedLocationId, setSelectedLocationId] = useState(null);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
-  const [pendingCartItem, setPendingCartItem] = useState(null);
+  const [pendingCartItems, setPendingCartItems] = useState([]);
   const [isResolvingClosestLocation, setIsResolvingClosestLocation] = useState(false);
   const [locationPickerError, setLocationPickerError] = useState('');
   const [isOrderAheadEnabled, setIsOrderAheadEnabled] = useState(false);
@@ -4477,7 +4532,7 @@ const DogHub = () => {
 
   const closeLocationPicker = () => {
     setIsLocationPickerOpen(false);
-    setPendingCartItem(null);
+    setPendingCartItems([]);
     setLocationPickerError('');
   };
 
@@ -4534,18 +4589,21 @@ const DogHub = () => {
       return;
     }
     const chosenLocationIsOpen = chosenLocation ? isLocationOpenAt(chosenLocation, effectivePickupAt) : false;
-    const canApplyPendingItem = pendingCartItem ? chosenLocationIsOpen && !pickupOutOfRangeError : true;
+    const hasPendingItems = pendingCartItems.length > 0;
+    const canApplyPendingItems = hasPendingItems ? chosenLocationIsOpen && !pickupOutOfRangeError : true;
 
     setSelectedLocationId(locationId);
     setIsLocationPickerOpen(false);
     setLocationPickerError('');
 
-    setPendingCartItem((pendingItem) => {
-      if (pendingItem && canApplyPendingItem) addItemToCart(pendingItem);
-      return null;
+    setPendingCartItems((itemsToApply) => {
+      if (itemsToApply.length > 0 && canApplyPendingItems) {
+        itemsToApply.forEach((pendingItem) => addItemToCart(pendingItem));
+      }
+      return [];
     });
 
-    if (pendingCartItem && !canApplyPendingItem) {
+    if (hasPendingItems && !canApplyPendingItems) {
       setIsLocationPickerOpen(true);
       if (pickupOutOfRangeError) {
         setLocationPickerError(pickupOutOfRangeError);
@@ -4594,8 +4652,14 @@ const DogHub = () => {
     );
   };
 
-  const addToCart = (item) => {
-    if (breakfastItemIdsSet.has(item.id) && !isBreakfastAvailableForPickup) return;
+  const addItemsToCart = (items) => {
+    const requestedItems = asArray(items).filter(Boolean);
+    if (requestedItems.length === 0) return;
+
+    const hasUnavailableBreakfastItem = requestedItems.some(
+      (item) => breakfastItemIdsSet.has(item.id) && !isBreakfastAvailableForPickup
+    );
+    if (hasUnavailableBreakfastItem) return;
 
     if (activeLocations.length === 0) {
       setLocationPickerError('No active locations are available right now.');
@@ -4618,13 +4682,21 @@ const DogHub = () => {
     }
 
     if (selectedLocationId) {
-      addItemToCart(item);
+      requestedItems.forEach((item) => addItemToCart(item));
       return;
     }
 
-    setPendingCartItem(item);
+    setPendingCartItems(requestedItems);
     setLocationPickerError('');
     setIsLocationPickerOpen(true);
+  };
+
+  const addToCart = (item) => {
+    addItemsToCart([item]);
+  };
+
+  const addBundleToCart = (items) => {
+    addItemsToCart(items);
   };
 
   const removeOneFromCart = (itemId) => {
@@ -4679,8 +4751,9 @@ const DogHub = () => {
             onNavigate={navigate}
             cart={cart}
             addToCart={addToCart}
+            addBundleToCart={addBundleToCart}
             removeOneFromCart={removeOneFromCart}
-            addCustomizedItemToCart={addItemToCart}
+            addCustomizedItemToCart={addToCart}
             activeCategory={menuSubTab}
             setActiveCategory={setMenuSubTab}
             selectedLocation={selectedLocation}
@@ -4779,7 +4852,7 @@ const DogHub = () => {
       <LocationPickerModal
         isOpen={isLocationPickerOpen}
         locationsList={activeLocations}
-        pendingItemName={pendingCartItem?.name || pendingCartItem?.item}
+        pendingItemName={pendingCartItems.map((item) => item?.name || item?.item).filter(Boolean).join(' + ')}
         onClose={closeLocationPicker}
         onChooseLocation={(locationId) => handleLocationSelected(locationId)}
         onUseClosestLocation={handleUseClosestLocation}
