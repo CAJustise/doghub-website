@@ -1037,7 +1037,7 @@ const MenuList = ({
 };
 
 const LocationsList = () => (
-  <div className="py-16 px-4 bg-zinc-950">
+  <div className="pt-32 pb-16 px-4 bg-zinc-950">
     <div className="max-w-4xl mx-auto">
       <h2 className="text-4xl font-black text-white tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
         Find Us
@@ -1199,7 +1199,7 @@ const MerchSection = ({ addToCart }) => {
     );
 
   return (
-    <div className="py-16 px-4 bg-zinc-950">
+    <div className="pt-32 pb-16 px-4 bg-zinc-950">
       <div className="max-w-4xl mx-auto">
         <h2 className="text-4xl font-black text-white tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
           Merch
@@ -1262,7 +1262,7 @@ const InvestorsSection = () => {
   };
 
   return (
-    <div className="py-16 px-4 bg-zinc-950 text-white">
+    <div className="pt-32 pb-16 px-4 bg-zinc-950 text-white">
       <div className="max-w-5xl mx-auto">
         <h2 className="text-4xl md:text-5xl font-black tracking-tighter mb-2 uppercase border-l-8 border-amber-500 pl-4">
           DOGHUB
