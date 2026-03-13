@@ -284,7 +284,10 @@ const Logo = ({ onNavigate }) => (
     onClick={() => onNavigate('home')}
     aria-label="Go to DogHub home"
   >
-    <span className="bg-amber-500 text-black font-black text-3xl md:text-4xl px-2.5 pb-1 rounded-xl tracking-tight">
+    <span
+      className="bg-amber-500 text-black font-black text-3xl md:text-4xl px-2.5 pb-1 rounded-xl"
+      style={{ letterSpacing: '-0.045em' }}
+    >
       Dog
     </span>
     <span className="text-zinc-200 font-black text-3xl md:text-4xl tracking-tight">Hub</span>
