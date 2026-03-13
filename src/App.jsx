@@ -356,6 +356,16 @@ const formatTimeLabel = (timeValue) => {
   return `${hour12}:${minuteText} ${suffix}`;
 };
 
+const buildOrderAheadDateOptions = (currentDate, latestDate) => {
+  const currentDateValue = formatDateInput(currentDate);
+  const latestDateValue = formatDateInput(latestDate);
+  const options = [{ value: currentDateValue, label: 'Today' }];
+  if (latestDateValue !== currentDateValue) {
+    options.push({ value: latestDateValue, label: 'Tomorrow' });
+  }
+  return options;
+};
+
 const combineDateAndTime = (dateValue, timeValue) => {
   const [year, month, day] = dateValue.split('-').map(Number);
   const [hour, minute] = timeValue.split(':').map(Number);
@@ -929,8 +939,7 @@ const CartView = ({
   onToggleOrderAhead,
   pickupDateValue,
   pickupTimeValue,
-  pickupMinDateValue,
-  pickupMaxDateValue,
+  pickupDateOptions,
   pickupTimeOptions,
   onPickupDateChange,
   onPickupTimeSlotChange,
@@ -984,14 +993,17 @@ const CartView = ({
                       <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
                         Date
                       </label>
-                      <input
-                        type="date"
+                      <select
                         value={pickupDateValue}
-                        min={pickupMinDateValue}
-                        max={pickupMaxDateValue}
                         onChange={(event) => onPickupDateChange(event.target.value)}
                         className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
-                      />
+                      >
+                        {pickupDateOptions.map((dateOption) => (
+                          <option key={dateOption.value} value={dateOption.value}>
+                            {dateOption.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
@@ -1142,8 +1154,7 @@ const MenuList = ({
   onToggleOrderAhead,
   pickupDateValue,
   pickupTimeValue,
-  pickupMinDateValue,
-  pickupMaxDateValue,
+  pickupDateOptions,
   pickupTimeOptions,
   onPickupDateChange,
   onPickupTimeSlotChange,
@@ -1319,14 +1330,17 @@ const MenuList = ({
                       <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
                         Date
                       </label>
-                      <input
-                        type="date"
+                      <select
                         value={pickupDateValue}
-                        min={pickupMinDateValue}
-                        max={pickupMaxDateValue}
                         onChange={(event) => onPickupDateChange(event.target.value)}
                         className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
-                      />
+                      >
+                        {pickupDateOptions.map((dateOption) => (
+                          <option key={dateOption.value} value={dateOption.value}>
+                            {dateOption.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
@@ -2174,10 +2188,12 @@ const DogHub = () => {
   const normalizedPickupAt = normalizeToMinute(pickupAt);
   const latestPickupTime = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
   const effectivePickupAt = isOrderAheadEnabled ? normalizedPickupAt : currentTime;
+  const pickupDateOptions = buildOrderAheadDateOptions(currentTime, latestPickupTime);
   const pickupDateValue = formatDateInput(normalizedPickupAt);
+  const resolvedPickupDateValue = pickupDateOptions.some((dateOption) => dateOption.value === pickupDateValue)
+    ? pickupDateValue
+    : pickupDateOptions[0]?.value || pickupDateValue;
   const pickupTimeValue = formatTimeInput(normalizedPickupAt);
-  const pickupMinDateValue = formatDateInput(currentTime);
-  const pickupMaxDateValue = formatDateInput(latestPickupTime);
   const getAvailableQuarterHoursForDate = (dateValue) =>
     quarterHourTimeOptions.filter((timeValue) => {
       const candidateDateTime = combineDateAndTime(dateValue, timeValue);
@@ -2185,7 +2201,7 @@ const DogHub = () => {
         candidateDateTime && candidateDateTime >= currentTime && candidateDateTime <= latestPickupTime
       );
     });
-  const pickupTimeOptions = getAvailableQuarterHoursForDate(pickupDateValue);
+  const pickupTimeOptions = getAvailableQuarterHoursForDate(resolvedPickupDateValue);
   const pickupOutOfRangeError =
     isOrderAheadEnabled
       ? normalizedPickupAt < currentTime
@@ -2213,11 +2229,22 @@ const DogHub = () => {
   }, []);
 
   useEffect(() => {
-    if (!isOrderAheadEnabled || pickupTimeOptions.length === 0) return;
-    if (pickupTimeOptions.includes(pickupTimeValue)) return;
-    const fallbackDateTime = combineDateAndTime(pickupDateValue, pickupTimeOptions[0]);
-    if (fallbackDateTime) setPickupAt(normalizeToMinute(fallbackDateTime));
-  }, [isOrderAheadEnabled, pickupDateValue, pickupTimeOptions, pickupTimeValue]);
+    if (!isOrderAheadEnabled || pickupDateOptions.length === 0) return;
+
+    const isSelectedDateAvailable = pickupDateOptions.some((dateOption) => dateOption.value === pickupDateValue);
+    const nextDateValue = isSelectedDateAvailable ? pickupDateValue : pickupDateOptions[0].value;
+    const availableTimes = getAvailableQuarterHoursForDate(nextDateValue);
+    if (availableTimes.length === 0) return;
+
+    const nextTimeValue =
+      isSelectedDateAvailable && availableTimes.includes(pickupTimeValue) ? pickupTimeValue : availableTimes[0];
+    const nextPickupAt = combineDateAndTime(nextDateValue, nextTimeValue);
+    if (!nextPickupAt) return;
+
+    const normalizedNextPickupAt = normalizeToMinute(nextPickupAt);
+    if (normalizedNextPickupAt.getTime() === normalizedPickupAt.getTime()) return;
+    setPickupAt(normalizedNextPickupAt);
+  }, [isOrderAheadEnabled, pickupDateOptions, pickupDateValue, pickupTimeValue, currentTimeMs]);
 
   const navigate = (tab, subTab = null) => {
     setActiveTab(tab);
@@ -2271,7 +2298,7 @@ const DogHub = () => {
   const handlePickupTimeSlotChange = (timeValue) => {
     if (!timeValue) return;
     setIsOrderAheadEnabled(true);
-    const nextPickupAt = combineDateAndTime(pickupDateValue, timeValue);
+    const nextPickupAt = combineDateAndTime(resolvedPickupDateValue, timeValue);
     if (!nextPickupAt) return;
     setPickupAt(normalizeToMinute(nextPickupAt));
   };
@@ -2428,10 +2455,9 @@ const DogHub = () => {
             selectedLocation={selectedLocation}
             isOrderAheadEnabled={isOrderAheadEnabled}
             onToggleOrderAhead={handleToggleOrderAhead}
-            pickupDateValue={pickupDateValue}
+            pickupDateValue={resolvedPickupDateValue}
             pickupTimeValue={pickupTimeValue}
-            pickupMinDateValue={pickupMinDateValue}
-            pickupMaxDateValue={pickupMaxDateValue}
+            pickupDateOptions={pickupDateOptions}
             pickupTimeOptions={pickupTimeOptions}
             onPickupDateChange={handlePickupDateChange}
             onPickupTimeSlotChange={handlePickupTimeSlotChange}
@@ -2467,10 +2493,9 @@ const DogHub = () => {
             selectedLocation={selectedLocation}
             isOrderAheadEnabled={isOrderAheadEnabled}
             onToggleOrderAhead={handleToggleOrderAhead}
-            pickupDateValue={pickupDateValue}
+            pickupDateValue={resolvedPickupDateValue}
             pickupTimeValue={pickupTimeValue}
-            pickupMinDateValue={pickupMinDateValue}
-            pickupMaxDateValue={pickupMaxDateValue}
+            pickupDateOptions={pickupDateOptions}
             pickupTimeOptions={pickupTimeOptions}
             onPickupDateChange={handlePickupDateChange}
             onPickupTimeSlotChange={handlePickupTimeSlotChange}
