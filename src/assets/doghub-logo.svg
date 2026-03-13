@@ -1,26 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 862 293" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" role="img" aria-labelledby="title desc">
   <title id="title">DogHub logo</title>
   <desc id="desc">DogHub wordmark with Dog in an amber rounded rectangle and Hub in light gray text.</desc>
-  <rect x="32" y="12" width="355" height="254" rx="34" fill="#f6a61c" />
+  <rect x="28" y="12" width="372" height="260" rx="38" fill="#f6a61c" />
   <text
-    x="62"
-    y="188"
+    x="58"
+    y="196"
     fill="#000000"
     font-family="Arial Black, Arial, Helvetica, sans-serif"
-    font-size="190"
+    font-size="182"
     font-weight="900"
-    letter-spacing="-10"
+    letter-spacing="-6"
   >
     Dog
   </text>
   <text
-    x="457"
-    y="235"
+    x="448"
+    y="238"
     fill="#d8d8d8"
     font-family="Arial Black, Arial, Helvetica, sans-serif"
-    font-size="190"
+    font-size="194"
     font-weight="900"
-    letter-spacing="-6"
+    letter-spacing="-4"
   >
     Hub
   </text>
