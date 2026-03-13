@@ -292,7 +292,7 @@ const Logo = ({ onNavigate }) => (
     }}
     aria-label="Go to DogHub home"
   >
-    <img src={doghubLogo} alt="DogHub" className="h-10 w-auto" />
+    <img src={doghubLogo} alt="DogHub" className="h-12 md:h-14 w-auto" />
   </div>
 );
 
