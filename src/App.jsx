@@ -687,7 +687,7 @@ const MethodSection = () => (
 
 const BreakfastLexiconSection = () => (
   <div className="mb-8 grid md:grid-cols-2 gap-6">
-    <div className="bg-zinc-900 border border-zinc-800 p-6">
+    <div className="bg-zinc-900 border border-zinc-800 border-l-4 border-l-amber-500 p-6">
       <p className="text-2xl font-black tracking-tight mb-2 text-amber-500">slut | \ slət</p>
       <p className="text-zinc-400 uppercase tracking-widest text-xs font-bold mb-4">adjective</p>
       <p className="text-zinc-200 leading-relaxed mb-3">
@@ -698,7 +698,7 @@ const BreakfastLexiconSection = () => (
       </p>
     </div>
 
-    <div className="bg-zinc-900 border border-zinc-800 p-6">
+    <div className="bg-zinc-900 border border-zinc-800 border-l-4 border-l-amber-500 p-6">
       <p className="text-2xl font-black tracking-tight mb-2 text-amber-500">hand job | \ ˈhand-ˌjäb</p>
       <p className="text-zinc-400 uppercase tracking-widest text-xs font-bold mb-4">noun</p>
       <p className="text-zinc-200 leading-relaxed mb-3">
