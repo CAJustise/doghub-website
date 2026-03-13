@@ -1778,7 +1778,6 @@ const MenuList = ({
   const quickieDrinkOptions = [
     ...asArray(drinksMenuItems?.soda),
     ...asArray(drinksMenuItems?.water),
-    ...asArray(drinksMenuItems?.beer),
   ];
   const isQuickieAvailable = sidesMenuItems.length > 0 && quickieDrinkOptions.length > 0;
 
@@ -1825,29 +1824,30 @@ const MenuList = ({
           <p className="text-zinc-300 font-medium mb-3 text-lg leading-snug">{getDescriptionWithBun(item)}</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 border-t border-zinc-800 pt-4 gap-4">
-          <div className="flex items-center gap-2 min-h-[30px]">
-            {canShowQuickieButton && (
-              <button
-                onClick={() => setIsQuickiePickerOpen(true)}
-                disabled={addDisabled || !isQuickieAvailable}
-                className="flex items-center text-amber-500 text-xs font-black bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded uppercase tracking-wider hover:bg-amber-500 hover:text-black transition-colors disabled:border-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 disabled:hover:text-zinc-600 disabled:hover:bg-zinc-900 disabled:cursor-not-allowed"
-              >
-                Make It A Quickie +$4
-              </button>
-            )}
-          </div>
+        <div className="mt-4 border-t border-zinc-800 pt-4">
+          {item.isCustom ? (
+            <button
+              onClick={() => onNavigate('customizer')}
+              className="w-full bg-white text-black hover:bg-amber-500 font-black uppercase text-sm px-4 py-3 tracking-wide flex justify-center items-center transition-colors"
+            >
+              BUILD <Plus size={16} className="ml-1" />
+            </button>
+          ) : (
+            <div className="w-full flex flex-col sm:flex-row sm:items-stretch gap-2">
+              {canShowQuickieButton && (
+                <button
+                  onClick={() => setIsQuickiePickerOpen(true)}
+                  disabled={addDisabled || !isQuickieAvailable}
+                  className="w-full sm:w-44 bg-amber-500 text-black font-black rounded px-3 py-3 flex flex-col items-center justify-center text-center transition-colors hover:bg-amber-400 sm:min-h-[88px] disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed"
+                >
+                  <span className="text-sm uppercase tracking-wider">Make It A Quickie +$4</span>
+                  <span className="text-[10px] leading-tight mt-1 font-bold tracking-wide normal-case">
+                    add a side & drink
+                  </span>
+                </button>
+              )}
 
-          <div className="w-full sm:w-auto">
-            {item.isCustom ? (
-              <button
-                onClick={() => onNavigate('customizer')}
-                className="w-full bg-white text-black hover:bg-amber-500 font-black uppercase text-sm px-4 py-3 tracking-wide flex justify-center items-center transition-colors"
-              >
-                BUILD <Plus size={16} className="ml-1" />
-              </button>
-            ) : (
-              <div className="space-y-2 w-full sm:w-auto">
+              <div className="space-y-2 w-full sm:min-w-[150px] sm:w-auto">
                 {qtyInCart > 0 ? (
                   <div className="flex items-center justify-between bg-zinc-800 text-white w-full sm:w-auto">
                     <button onClick={() => removeOneFromCart(item.id)} className="p-3 hover:text-amber-500">
@@ -1887,8 +1887,8 @@ const MenuList = ({
                   </button>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );
