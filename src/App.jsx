@@ -957,7 +957,9 @@ const CartView = ({
                   className="bg-zinc-900 p-6 border border-zinc-800 flex justify-between items-start group hover:border-zinc-700 transition-colors"
                 >
                   <div className="flex-1 pr-4">
-                    <h3 className="font-black text-xl uppercase tracking-tight mb-1">{item.name}</h3>
+                    <h3 className="font-black text-xl uppercase tracking-tight mb-1">
+                      {item.name || item.item}
+                    </h3>
                     {item.desc && <p className="text-zinc-400 text-sm font-medium">{item.desc}</p>}
                   </div>
                   <div className="flex flex-col items-end gap-3">
@@ -2024,7 +2026,13 @@ const DogHub = () => {
   };
 
   const addItemToCart = (item) => {
-    setCart((prevCart) => [...prevCart, { ...item, cartId: Date.now() + Math.random() }]);
+    const normalizedName = item.name || item.item || 'ITEM';
+    const normalizedDesc = item.desc || item.description || '';
+
+    setCart((prevCart) => [
+      ...prevCart,
+      { ...item, name: normalizedName, desc: normalizedDesc, cartId: Date.now() + Math.random() },
+    ]);
   };
 
   const closeLocationPicker = () => {
@@ -2217,7 +2225,7 @@ const DogHub = () => {
       <LocationPickerModal
         isOpen={isLocationPickerOpen}
         locationsList={locations}
-        pendingItemName={pendingCartItem?.name}
+        pendingItemName={pendingCartItem?.name || pendingCartItem?.item}
         onClose={closeLocationPicker}
         onChooseLocation={(locationId) => handleLocationSelected(locationId)}
         onUseClosestLocation={handleUseClosestLocation}
