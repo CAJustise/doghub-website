@@ -661,6 +661,7 @@ const createDefaultCrmData = () => {
       message: '',
       link: '',
       backgroundColor: '#f59e0b',
+      textColor: '#111111',
     },
   };
 };
@@ -743,6 +744,7 @@ const loadCrmData = () => {
           parsed?.promoBanner?.backgroundColor,
           defaults.promoBanner.backgroundColor
         ),
+        textColor: normalizeHexColor(parsed?.promoBanner?.textColor, defaults.promoBanner.textColor),
       },
     };
   } catch (error) {
@@ -2665,7 +2667,7 @@ const PromoBanner = ({ promoBanner }) => {
   if (!promoBanner?.active || !promoBanner.message) return null;
 
   const bannerColor = normalizeHexColor(promoBanner.backgroundColor, '#f59e0b');
-  const textColor = getReadableTextColor(bannerColor);
+  const textColor = normalizeHexColor(promoBanner.textColor, getReadableTextColor(bannerColor));
   const segmentText = [promoBanner.title, promoBanner.message].filter(Boolean).join(' | ');
 
   const renderSegment = (segmentKey) =>
@@ -2690,7 +2692,7 @@ const PromoBanner = ({ promoBanner }) => {
 
   return (
     <div
-      className="w-full overflow-hidden border-b-2"
+      className="w-full overflow-hidden border-b-2 mt-16 relative z-40"
       style={{
         backgroundColor: bannerColor,
         borderBottomColor: textColor === '#111111' ? '#111111' : '#e5e7eb',
@@ -3955,6 +3957,33 @@ const AdminDashboard = ({ crmData, setCrmData, onLogout }) => {
                   }
                   className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
                   placeholder="#f59e0b"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs uppercase font-bold tracking-widest text-zinc-400">Text Color</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={normalizeHexColor(crmData.promoBanner?.textColor || '#111111')}
+                  onChange={(event) =>
+                    setCrmData((prevData) => ({
+                      ...prevData,
+                      promoBanner: { ...prevData.promoBanner, textColor: event.target.value },
+                    }))
+                  }
+                  className="h-11 w-16 rounded border border-zinc-700 bg-zinc-950 p-1"
+                />
+                <input
+                  value={crmData.promoBanner?.textColor || '#111111'}
+                  onChange={(event) =>
+                    setCrmData((prevData) => ({
+                      ...prevData,
+                      promoBanner: { ...prevData.promoBanner, textColor: event.target.value },
+                    }))
+                  }
+                  className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                  placeholder="#111111"
                 />
               </div>
             </div>
