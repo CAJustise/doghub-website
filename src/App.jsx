@@ -254,12 +254,6 @@ const locations = [
   },
 ];
 
-const breakfastItemIds = new Set([
-  ...breakfastSluts.map((item) => item.id),
-  ...breakfastHandJobs.map((item) => item.id),
-  ...breakfastBevs.map((item) => item.id),
-]);
-
 const getDirectionsLink = (address) => {
   const encodedAddress = encodeURIComponent(address);
 
@@ -286,6 +280,13 @@ const easternTimeFormatter = new Intl.DateTimeFormat('en-US', {
   hour12: false,
 });
 
+const easternDateFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 const weekdayShortToKey = {
   Sun: 'sun',
   Mon: 'mon',
@@ -306,8 +307,16 @@ const getEasternTimeParts = (date) => {
   };
 };
 
+const getEasternDateKey = (date) => {
+  const parts = easternDateFormatter.formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
 const toMinutes = (timeText) => {
+  if (!timeText || !timeText.includes(':')) return NaN;
   const [hour, minute] = timeText.split(':').map(Number);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return NaN;
   return hour * 60 + minute;
 };
 
@@ -317,13 +326,25 @@ const isWithinHoursWindow = (minutes, openMinutes, closeMinutes) => {
   return true;
 };
 
+const getHolidayHoursForDate = (location, date) => {
+  const dateKey = getEasternDateKey(date);
+  return asArray(location?.holidayHours).find((entry) => entry.date === dateKey);
+};
+
 const isLocationOpenAt = (location, date) => {
   const etParts = getEasternTimeParts(date);
-  const dayWindow = location.schedule?.[etParts.weekday] || location.schedule?.default;
+  const holidayHours = getHolidayHoursForDate(location, date);
+
+  if (holidayHours?.closed) return false;
+
+  const dayWindow = holidayHours
+    ? { open: holidayHours.open, close: holidayHours.close }
+    : location.schedule?.[etParts.weekday] || location.schedule?.default;
   if (!dayWindow) return false;
 
   const openMinutes = toMinutes(dayWindow.open);
   const closeMinutes = toMinutes(dayWindow.close);
+  if (Number.isNaN(openMinutes) || Number.isNaN(closeMinutes)) return false;
   const currentMinutes = etParts.hour * 60 + etParts.minute;
 
   return isWithinHoursWindow(currentMinutes, openMinutes, closeMinutes);
@@ -415,8 +436,8 @@ const calculateDistanceMiles = (a, b) => {
   return 2 * earthRadiusMiles * Math.asin(Math.sqrt(haversine));
 };
 
-const getClosestLocation = (latitude, longitude) =>
-  locations.reduce((closest, location) => {
+const getClosestLocation = (locationsList, latitude, longitude) =>
+  asArray(locationsList).reduce((closest, location) => {
     const distance = calculateDistanceMiles({ latitude, longitude }, location);
     if (!closest || distance < closest.distance) {
       return { location, distance };
@@ -495,6 +516,213 @@ const customizationData = {
       { name: 'Celery Salt', price: 0 },
     ],
   },
+};
+
+const CRM_STORAGE_KEY = 'doghub-crm-data-v1';
+const ADMIN_SESSION_KEY = 'doghub-admin-session-v1';
+const ADMIN_PASSWORD = 'doghub-admin';
+
+const toSlugId = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+const asArray = (value, fallback = []) => (Array.isArray(value) ? value : fallback);
+
+const dogIngredientSeeds = [
+  ...customizationData.toppings.veg.map((ingredient) => ({ ...ingredient, category: 'dog-veg' })),
+  ...customizationData.toppings.other.map((ingredient) => ({ ...ingredient, category: 'dog-other' })),
+  ...customizationData.toppings.protein.map((ingredient) => ({ ...ingredient, category: 'dog-protein' })),
+  ...customizationData.toppings.cheese.map((ingredient) => ({ ...ingredient, category: 'dog-cheese' })),
+  ...customizationData.toppings.condiments.map((ingredient) => ({ ...ingredient, category: 'dog-condiments' })),
+];
+
+const breakfastIngredientSeeds = [
+  { name: 'Soft-coddled Egg', price: 0, category: 'breakfast' },
+  { name: 'Creamy Mashed Potatoes', price: 0, category: 'breakfast' },
+  { name: 'Hash Brown Mash', price: 0, category: 'breakfast' },
+  { name: 'Polenta', price: 0, category: 'breakfast' },
+  { name: 'Brioche Bread Pudding', price: 0, category: 'breakfast' },
+  { name: 'Breakfast Sausage Crumble', price: 0, category: 'breakfast' },
+  { name: 'Chicken Sausage', price: 0, category: 'breakfast' },
+];
+
+const createDefaultIngredients = () => {
+  const usedIds = new Set();
+  const allSeeds = [...dogIngredientSeeds, ...breakfastIngredientSeeds];
+  return allSeeds.map((ingredient) => {
+    let id = `ing-${toSlugId(ingredient.name)}`;
+    let counter = 2;
+    while (usedIds.has(id)) {
+      id = `ing-${toSlugId(ingredient.name)}-${counter}`;
+      counter += 1;
+    }
+    usedIds.add(id);
+    return {
+      id,
+      name: ingredient.name,
+      price: Number(ingredient.price || 0),
+      category: ingredient.category || 'other',
+      active: true,
+    };
+  });
+};
+
+const defaultDogBaseIngredientNamesById = {
+  1: ['Spicy Mustard', 'Onions (Raw Chopped)', 'Sauerkraut'],
+  2: ['Chili', 'Mustard', 'Onions (Raw Chopped)'],
+  3: ['Chili', 'Mustard', 'Shredded Cheddar', 'Coleslaw'],
+  4: [
+    'Mustard',
+    'Relish',
+    'Onions (Raw Chopped)',
+    'Tomatoes (Chopped)',
+    'Pickle Spear',
+    'Sport Peppers',
+    'Celery Salt',
+  ],
+  5: ['Bacon (Chopped)', 'Onions (Sautéed)', 'Tomatoes (Chopped)', 'Jalapeño Relish', 'Spicy Creme'],
+  6: ['Onions (Sautéed)', 'Mixed Sautéed Peppers', 'Nacho Cheese'],
+  7: [],
+};
+
+const withIngredientDefaults = (ingredient) => ({
+  ...ingredient,
+  id: ingredient.id || `ing-${toSlugId(ingredient.name || Date.now())}`,
+  name: ingredient.name || 'Ingredient',
+  price: Number(ingredient.price || 0),
+  category: ingredient.category || 'other',
+  active: ingredient.active !== false,
+});
+
+const createDefaultCrmData = () => {
+  const ingredients = createDefaultIngredients();
+  const ingredientNameToId = Object.fromEntries(ingredients.map((ingredient) => [ingredient.name, ingredient.id]));
+  const defaultDogAllowedIngredientIds = ingredients
+    .filter((ingredient) => ingredient.category.startsWith('dog-'))
+    .map((ingredient) => ingredient.id);
+
+  const mapBaseNamesToIds = (itemId) =>
+    asArray(defaultDogBaseIngredientNamesById[itemId]).map((name) => ingredientNameToId[name]).filter(Boolean);
+
+  return {
+    menu: {
+      dogs: dogItems.map((item) => ({
+        ...item,
+        active: true,
+        modifiable: !item.isCustom,
+        allowedIngredientIds: !item.isCustom ? defaultDogAllowedIngredientIds : [],
+        baseIngredientIds: !item.isCustom ? mapBaseNamesToIds(item.id) : [],
+      })),
+      sides: sidesList.map((item) => ({ ...item, active: true })),
+      drinks: {
+        soda: drinksList.soda.map((item) => ({ ...item, active: true })),
+        water: drinksList.water.map((item) => ({ ...item, active: true })),
+        beer: drinksList.beer.map((item) => ({ ...item, active: true })),
+      },
+      breakfast: {
+        sluts: breakfastSluts.map((item) => ({ ...item, active: true })),
+        handJobs: breakfastHandJobs.map((item) => ({ ...item, active: true })),
+        bevs: breakfastBevs.map((item) => ({ ...item, active: true })),
+      },
+    },
+    ingredients: ingredients.map(withIngredientDefaults),
+    locations: locations.map((location) => ({
+      ...location,
+      active: true,
+      phone: location.phone || '',
+      holidayHours: [],
+    })),
+    merch: merch.map((item) => ({ ...item, active: true })),
+    promoBanner: {
+      active: false,
+      title: '',
+      message: '',
+      link: '',
+    },
+  };
+};
+
+const withMenuItemDefaults = (item) => ({
+  ...item,
+  active: item.active !== false,
+  price: Number(item.price || 0),
+});
+
+const withDogMenuDefaults = (item, defaultAllowedIngredientIds) => ({
+  ...withMenuItemDefaults(item),
+  modifiable: item.modifiable !== false && !item.isCustom,
+  allowedIngredientIds: asArray(item.allowedIngredientIds, defaultAllowedIngredientIds),
+  baseIngredientIds: asArray(item.baseIngredientIds),
+});
+
+const withLocationDefaults = (location) => ({
+  ...location,
+  active: location.active !== false,
+  phone: location.phone || '',
+  schedule: location.schedule || { default: { open: '05:00', close: '24:00' } },
+  holidayHours: asArray(location.holidayHours).map((entry) => ({
+    id: entry.id || `holiday-${Date.now()}-${Math.random()}`,
+    date: entry.date || '',
+    label: entry.label || '',
+    open: entry.open || '09:00',
+    close: entry.close || '17:00',
+    closed: Boolean(entry.closed),
+  })),
+});
+
+const withMerchDefaults = (item) => ({
+  ...item,
+  active: item.active !== false,
+  price: Number(item.price || 0),
+  item: item.item || item.name || 'MERCH ITEM',
+});
+
+const loadCrmData = () => {
+  const defaults = createDefaultCrmData();
+  if (typeof window === 'undefined') return defaults;
+
+  try {
+    const saved = window.localStorage.getItem(CRM_STORAGE_KEY);
+    if (!saved) return defaults;
+
+    const parsed = JSON.parse(saved);
+    const normalizedIngredients = asArray(parsed?.ingredients, defaults.ingredients).map(withIngredientDefaults);
+    const defaultDogAllowedIngredientIds = normalizedIngredients
+      .filter((ingredient) => ingredient.category.startsWith('dog-'))
+      .map((ingredient) => ingredient.id);
+
+    return {
+      menu: {
+        dogs: asArray(parsed?.menu?.dogs, defaults.menu.dogs).map((item) =>
+          withDogMenuDefaults(item, defaultDogAllowedIngredientIds)
+        ),
+        sides: asArray(parsed?.menu?.sides, defaults.menu.sides).map(withMenuItemDefaults),
+        drinks: {
+          soda: asArray(parsed?.menu?.drinks?.soda, defaults.menu.drinks.soda).map(withMenuItemDefaults),
+          water: asArray(parsed?.menu?.drinks?.water, defaults.menu.drinks.water).map(withMenuItemDefaults),
+          beer: asArray(parsed?.menu?.drinks?.beer, defaults.menu.drinks.beer).map(withMenuItemDefaults),
+        },
+        breakfast: {
+          sluts: asArray(parsed?.menu?.breakfast?.sluts, defaults.menu.breakfast.sluts).map(withMenuItemDefaults),
+          handJobs: asArray(parsed?.menu?.breakfast?.handJobs, defaults.menu.breakfast.handJobs).map(
+            withMenuItemDefaults
+          ),
+          bevs: asArray(parsed?.menu?.breakfast?.bevs, defaults.menu.breakfast.bevs).map(withMenuItemDefaults),
+        },
+      },
+      ingredients: normalizedIngredients,
+      locations: asArray(parsed?.locations, defaults.locations).map(withLocationDefaults),
+      merch: asArray(parsed?.merch, defaults.merch).map(withMerchDefaults),
+      promoBanner: {
+        ...defaults.promoBanner,
+        ...(parsed?.promoBanner || {}),
+      },
+    };
+  } catch (error) {
+    return defaults;
+  }
 };
 
 // --- SUB-COMPONENTS ---
@@ -1022,13 +1250,18 @@ const CartView = ({
                       <select
                         value={pickupDateValue}
                         onChange={(event) => onPickupDateChange(event.target.value)}
+                        disabled={pickupDateOptions.length === 0}
                         className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
                       >
-                        {pickupDateOptions.map((dateOption) => (
-                          <option key={dateOption.value} value={dateOption.value}>
-                            {dateOption.label}
-                          </option>
-                        ))}
+                        {pickupDateOptions.length === 0 ? (
+                          <option value={pickupDateValue}>No dates available</option>
+                        ) : (
+                          pickupDateOptions.map((dateOption) => (
+                            <option key={dateOption.value} value={dateOption.value}>
+                              {dateOption.label}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </div>
                     <div>
@@ -1168,11 +1401,140 @@ const CartView = ({
   );
 };
 
+const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) => {
+  const allowedIngredients = asArray(ingredients)
+    .filter((ingredient) => item?.allowedIngredientIds?.includes(ingredient.id) && ingredient.active !== false)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const baseIngredientIds = asArray(item?.baseIngredientIds);
+  const [selectedIngredientIds, setSelectedIngredientIds] = useState(baseIngredientIds);
+
+  useEffect(() => {
+    setSelectedIngredientIds(baseIngredientIds);
+  }, [item]);
+
+  if (!item) return null;
+
+  const ingredientById = Object.fromEntries(allowedIngredients.map((ingredient) => [ingredient.id, ingredient]));
+  const baseIngredientSet = new Set(baseIngredientIds);
+  const selectedSet = new Set(selectedIngredientIds);
+
+  const addedIngredientIds = selectedIngredientIds.filter((id) => !baseIngredientSet.has(id));
+  const removedIngredientIds = baseIngredientIds.filter((id) => !selectedSet.has(id));
+
+  const addedPrice = addedIngredientIds.reduce(
+    (sum, ingredientId) => sum + Number(ingredientById[ingredientId]?.price || 0),
+    0
+  );
+  const totalPrice = Number(item.price || 0) + addedPrice;
+
+  const toggleIngredient = (ingredientId) => {
+    setSelectedIngredientIds((prevIds) =>
+      prevIds.includes(ingredientId) ? prevIds.filter((id) => id !== ingredientId) : [...prevIds, ingredientId]
+    );
+  };
+
+  const buildCustomizationDesc = () => {
+    const removedNames = removedIngredientIds
+      .map((ingredientId) => ingredientById[ingredientId]?.name)
+      .filter(Boolean);
+    const addedNames = addedIngredientIds
+      .map((ingredientId) => ingredientById[ingredientId]?.name)
+      .filter(Boolean);
+
+    const changes = [];
+    if (removedNames.length > 0) changes.push(`No ${removedNames.join(', ')}`);
+    if (addedNames.length > 0) changes.push(`Add ${addedNames.join(', ')}`);
+    return changes.join(' | ');
+  };
+
+  const handleAddCustomizedItem = () => {
+    const customizationDesc = buildCustomizationDesc();
+    onAddToCart({
+      id: item.id,
+      name: `${item.name} (Custom)`,
+      desc: customizationDesc || item.desc,
+      price: totalPrice,
+      isCustom: true,
+      baseItemId: item.id,
+      selectedIngredientIds,
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/75 backdrop-blur-sm px-4 py-8 overflow-y-auto">
+      <div className="max-w-2xl mx-auto bg-zinc-950 border border-zinc-800 text-white p-6 md:p-8 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+          aria-label="Close item customizer"
+        >
+          <X size={20} />
+        </button>
+
+        <h3 className="text-3xl font-black tracking-tighter uppercase mb-2">{item.name}</h3>
+        <p className="text-zinc-400 mb-6">Customize your build. Remove defaults or add approved extras.</p>
+
+        {allowedIngredients.length === 0 ? (
+          <p className="text-zinc-400">No modifiers are available for this item.</p>
+        ) : (
+          <div className="space-y-3 max-h-[52vh] overflow-y-auto pr-1">
+            {allowedIngredients.map((ingredient) => {
+              const isSelected = selectedSet.has(ingredient.id);
+              const isBaseIngredient = baseIngredientSet.has(ingredient.id);
+              return (
+                <button
+                  key={ingredient.id}
+                  onClick={() => toggleIngredient(ingredient.id)}
+                  className={`w-full border px-4 py-3 text-left transition-colors flex items-center justify-between ${
+                    isSelected
+                      ? 'border-amber-500 bg-amber-500/10'
+                      : 'border-zinc-800 hover:border-zinc-700 text-zinc-300'
+                  }`}
+                >
+                  <div>
+                    <p className="font-bold">{ingredient.name}</p>
+                    <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                      {isBaseIngredient ? 'Included by default' : 'Add-on'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-sm">
+                      {ingredient.price > 0 ? `+$${Number(ingredient.price).toFixed(2)}` : '$0.00'}
+                    </p>
+                    <p className={`text-xs font-bold uppercase tracking-wider ${isSelected ? 'text-amber-500' : 'text-zinc-500'}`}>
+                      {isSelected ? 'Selected' : 'Not Selected'}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-8 border-t border-zinc-800 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-zinc-400 font-bold uppercase tracking-widest text-sm">Total</span>
+            <span className="text-3xl font-black text-amber-500">${totalPrice.toFixed(2)}</span>
+          </div>
+          <button
+            onClick={handleAddCustomizedItem}
+            className="w-full bg-white text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-500 transition-colors"
+          >
+            Add Custom To Bag
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MenuList = ({
   onNavigate,
   cart,
   addToCart,
   removeOneFromCart,
+  addCustomizedItemToCart,
   activeCategory,
   setActiveCategory,
   selectedLocation,
@@ -1186,12 +1548,22 @@ const MenuList = ({
   onPickupTimeSlotChange,
   pickupTimeError,
   isBreakfastAvailableForPickup,
+  breakfastItemIdsSet,
+  dogsMenuItems,
+  sidesMenuItems,
+  drinksMenuItems,
+  breakfastSlutsItems,
+  breakfastHandJobsItems,
+  breakfastBevsItems,
+  ingredientOptions,
 }) => {
+  const [customizingItem, setCustomizingItem] = useState(null);
+
   const isItemAddDisabled = (item) =>
-    Boolean(pickupTimeError) || (breakfastItemIds.has(item.id) && !isBreakfastAvailableForPickup);
+    Boolean(pickupTimeError) || (breakfastItemIdsSet.has(item.id) && !isBreakfastAvailableForPickup);
 
   const getDisabledLabel = (item) => {
-    if (breakfastItemIds.has(item.id) && !isBreakfastAvailableForPickup) return 'UNAVAILABLE';
+    if (breakfastItemIdsSet.has(item.id) && !isBreakfastAvailableForPickup) return 'UNAVAILABLE';
     if (pickupTimeError) return 'CHECK PICKUP';
     return null;
   };
@@ -1245,34 +1617,47 @@ const MenuList = ({
               >
                 BUILD <Plus size={16} className="ml-1" />
               </button>
-            ) : qtyInCart > 0 ? (
-              <div className="flex items-center justify-between bg-zinc-800 text-white w-full sm:w-auto">
-                <button onClick={() => removeOneFromCart(item.id)} className="p-3 hover:text-amber-500">
-                  <Minus size={18} />
-                </button>
-                <span className="font-black text-amber-500 px-2">{qtyInCart}</span>
-                <button
-                  onClick={() => addToCart(item)}
-                  disabled={addDisabled}
-                  className="p-3 hover:text-amber-500 disabled:text-zinc-600 disabled:hover:text-zinc-600 disabled:cursor-not-allowed"
-                >
-                  <Plus size={18} />
-                </button>
-              </div>
             ) : (
-              <button
-                onClick={() => addToCart(item)}
-                disabled={addDisabled}
-                className="w-full bg-white text-black hover:bg-amber-500 font-black uppercase text-sm px-4 py-3 tracking-wide flex justify-center items-center transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed"
-              >
-                {disabledLabel ? (
-                  disabledLabel
+              <div className="space-y-2 w-full sm:w-auto">
+                {qtyInCart > 0 ? (
+                  <div className="flex items-center justify-between bg-zinc-800 text-white w-full sm:w-auto">
+                    <button onClick={() => removeOneFromCart(item.id)} className="p-3 hover:text-amber-500">
+                      <Minus size={18} />
+                    </button>
+                    <span className="font-black text-amber-500 px-2">{qtyInCart}</span>
+                    <button
+                      onClick={() => addToCart(item)}
+                      disabled={addDisabled}
+                      className="p-3 hover:text-amber-500 disabled:text-zinc-600 disabled:hover:text-zinc-600 disabled:cursor-not-allowed"
+                    >
+                      <Plus size={18} />
+                    </button>
+                  </div>
                 ) : (
-                  <>
-                    ADD <Plus size={16} className="ml-1" />
-                  </>
+                  <button
+                    onClick={() => addToCart(item)}
+                    disabled={addDisabled}
+                    className="w-full bg-white text-black hover:bg-amber-500 font-black uppercase text-sm px-4 py-3 tracking-wide flex justify-center items-center transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed"
+                  >
+                    {disabledLabel ? (
+                      disabledLabel
+                    ) : (
+                      <>
+                        ADD <Plus size={16} className="ml-1" />
+                      </>
+                    )}
+                  </button>
                 )}
-              </button>
+                {item.modifiable && (
+                  <button
+                    onClick={() => setCustomizingItem(item)}
+                    disabled={addDisabled}
+                    className="w-full border border-amber-500/60 text-amber-500 hover:bg-amber-500 hover:text-black font-black uppercase text-xs px-4 py-2 tracking-widest transition-colors disabled:border-zinc-700 disabled:text-zinc-600 disabled:hover:bg-transparent disabled:hover:text-zinc-600"
+                  >
+                    Customize
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1359,13 +1744,18 @@ const MenuList = ({
                       <select
                         value={pickupDateValue}
                         onChange={(event) => onPickupDateChange(event.target.value)}
+                        disabled={pickupDateOptions.length === 0}
                         className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
                       >
-                        {pickupDateOptions.map((dateOption) => (
-                          <option key={dateOption.value} value={dateOption.value}>
-                            {dateOption.label}
-                          </option>
-                        ))}
+                        {pickupDateOptions.length === 0 ? (
+                          <option value={pickupDateValue}>No dates available</option>
+                        ) : (
+                          pickupDateOptions.map((dateOption) => (
+                            <option key={dateOption.value} value={dateOption.value}>
+                              {dateOption.label}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </div>
                     <div>
@@ -1436,7 +1826,7 @@ const MenuList = ({
             <h2 className="text-xl text-amber-500 font-black tracking-widest uppercase mb-8">Served All Day</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {dogItems.map((item) => (
+              {dogsMenuItems.map((item) => (
                 <ItemCard key={item.id} item={item} />
               ))}
             </div>
@@ -1449,7 +1839,7 @@ const MenuList = ({
                 <div>
                   <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-4">Fried Stuff</h3>
                   <div className="space-y-4">
-                    {sidesList.map((item) => (
+                    {sidesMenuItems.map((item) => (
                       <CompactRow key={item.id} item={item} />
                     ))}
                   </div>
@@ -1463,7 +1853,7 @@ const MenuList = ({
                         Sodas (Boylan/Local)
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {drinksList.soda.map((item) => (
+                        {drinksMenuItems.soda.map((item) => (
                           <CompactRow key={item.id} item={item} />
                         ))}
                       </div>
@@ -1471,7 +1861,7 @@ const MenuList = ({
                     <div className="border-t border-zinc-800 pt-4">
                       <h4 className="text-amber-500 font-bold text-xs uppercase tracking-widest mb-2">Water</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {drinksList.water.map((item) => (
+                        {drinksMenuItems.water.map((item) => (
                           <CompactRow key={item.id} item={item} />
                         ))}
                       </div>
@@ -1481,7 +1871,7 @@ const MenuList = ({
                         Beer & Cider
                       </h4>
                       <div className="space-y-2">
-                        {drinksList.beer.map((item) => (
+                        {drinksMenuItems.beer.map((item) => (
                           <CompactRow key={item.id} item={item} />
                         ))}
                       </div>
@@ -1506,7 +1896,7 @@ const MenuList = ({
                 </p>
               </div>
               <div className="grid md:grid-cols-2 gap-6">
-                {breakfastSluts.map((item) => (
+                {breakfastSlutsItems.map((item) => (
                   <ItemCard key={item.id} item={item} />
                 ))}
               </div>
@@ -1520,7 +1910,7 @@ const MenuList = ({
                 </p>
               </div>
               <div className="grid md:grid-cols-2 gap-6">
-                {breakfastHandJobs.map((item) => (
+                {breakfastHandJobsItems.map((item) => (
                   <ItemCard key={item.id} item={item} />
                 ))}
               </div>
@@ -1531,12 +1921,20 @@ const MenuList = ({
                 Morning Beverages
               </h3>
               <div className="grid md:grid-cols-2 gap-4">
-                {breakfastBevs.map((item) => (
+                {breakfastBevsItems.map((item) => (
                   <CompactRow key={item.id} item={item} />
                 ))}
               </div>
             </div>
           </>
+        )}
+        {customizingItem && (
+          <MenuItemCustomizerModal
+            item={customizingItem}
+            ingredients={ingredientOptions}
+            onClose={() => setCustomizingItem(null)}
+            onAddToCart={addCustomizedItemToCart}
+          />
         )}
       </div>
     </div>
@@ -1544,6 +1942,7 @@ const MenuList = ({
 };
 
 const LocationsList = ({
+  locationsList,
   selectedLocationId,
   onOrderHere,
   onUseClosestLocation,
@@ -1564,11 +1963,18 @@ const LocationsList = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {locations.map((loc) => {
+      {locationsList.length === 0 ? (
+        <div className="border border-zinc-800 bg-zinc-900 p-8 text-zinc-400">
+          No active locations are configured. Use the CRM backend to add a location.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {locationsList.map((loc) => {
           const directionsLink = getDirectionsLink(loc.address);
           const isWebLink = directionsLink.startsWith('http');
           const isSelected = selectedLocationId === loc.id;
+          const isOpenNow = isLocationOpenAt(loc, new Date());
+          const holidayHoursToday = getHolidayHoursForDate(loc, new Date());
 
           return (
             <div
@@ -1587,8 +1993,10 @@ const LocationsList = ({
                 <div className="absolute bottom-4 left-4 right-4">
                   <h3 className="text-3xl font-black text-white mb-1 shadow-black drop-shadow-lg">{loc.area}</h3>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-green-500 font-bold text-sm tracking-widest">{loc.status}</span>
+                    <div className={`w-2 h-2 rounded-full animate-pulse ${isOpenNow ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span className={`font-bold text-sm tracking-widest ${isOpenNow ? 'text-green-500' : 'text-red-400'}`}>
+                      {isOpenNow ? 'OPEN NOW' : 'CLOSED'}
+                    </span>
                     {isSelected && <span className="text-amber-500 text-xs font-black tracking-widest">ORDERING HERE</span>}
                   </div>
                 </div>
@@ -1601,6 +2009,14 @@ const LocationsList = ({
                     <Clock size={16} className="mr-2" />
                     {loc.hours}
                   </div>
+                  {loc.phone && <p className="text-zinc-500 font-mono text-sm mt-2">Phone: {loc.phone}</p>}
+                  {holidayHoursToday && (
+                    <p className="text-amber-500 font-bold text-xs uppercase tracking-wider mt-2">
+                      {holidayHoursToday.closed
+                        ? `${holidayHoursToday.label || 'Holiday'}: Closed Today`
+                        : `${holidayHoursToday.label || 'Holiday'} Hours: ${holidayHoursToday.open} - ${holidayHoursToday.close}`}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1622,8 +2038,9 @@ const LocationsList = ({
               </div>
             </div>
           );
-        })}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   </div>
 );
@@ -1706,9 +2123,9 @@ const AboutSection = () => (
   </div>
 );
 
-const MerchSection = ({ addToCart }) => {
-  const teeItem = merch.find((item) => item.id === 801);
-  const accessoryItems = merch.filter((item) => item.id !== 801);
+const MerchSection = ({ addToCart, merchItems }) => {
+  const teeItem = merchItems.find((item) => item.id === 801) || merchItems[0];
+  const accessoryItems = merchItems.filter((item) => item.id !== teeItem?.id);
 
   const renderSquareImage = (item) =>
     item.image ? (
@@ -1746,6 +2163,12 @@ const MerchSection = ({ addToCart }) => {
           <p>Show Sully your love, eat him then wear him!</p>
           <p>We'd love to see our Weiners on your Back, on your head and in your hand!!</p>
         </div>
+
+        {merchItems.length === 0 && (
+          <div className="border border-zinc-800 bg-zinc-900 p-8 text-zinc-400">
+            No active merch items are configured. Use the CRM backend to add merch.
+          </div>
+        )}
 
         {teeItem && (
           <div className="max-w-md mx-auto mb-8">
@@ -2178,7 +2601,7 @@ const LocationPickerModal = ({
   );
 };
 
-const Footer = () => (
+const Footer = ({ onOpenAdmin }) => (
   <footer className="bg-zinc-950 border-t border-zinc-900">
     <div className="bg-black text-zinc-500 py-12 px-4">
       <div className="max-w-4xl mx-auto flex flex-col gap-10">
@@ -2201,12 +2624,1282 @@ const Footer = () => (
           <p className="text-white font-black text-xl md:text-3xl uppercase tracking-tighter mb-6 hover:text-amber-500 transition-colors cursor-default">
             We'd love to see our wieners in your mouth
           </p>
-          <div className="text-xs">© {new Date().getFullYear()} DogHub Operations.</div>
+          <button
+            onClick={onOpenAdmin}
+            className="text-xs text-zinc-500 hover:text-amber-500 transition-colors"
+          >
+            © {new Date().getFullYear()} DogHub Operations.
+          </button>
         </div>
       </div>
     </div>
   </footer>
 );
+
+const PromoBanner = ({ promoBanner }) => {
+  if (!promoBanner?.active || !promoBanner.message) return null;
+
+  return (
+    <div className="bg-amber-500 text-black px-4 py-3 border-b-2 border-black">
+      <div className="max-w-4xl mx-auto flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+        {promoBanner.title && <span className="font-black uppercase tracking-widest text-xs">{promoBanner.title}</span>}
+        {promoBanner.link ? (
+          <a href={promoBanner.link} className="font-bold hover:underline">
+            {promoBanner.message}
+          </a>
+        ) : (
+          <span className="font-bold">{promoBanner.message}</span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const MENU_GROUP_OPTIONS = [
+  { key: 'dogs', label: 'Dogs' },
+  { key: 'sides', label: 'Sides' },
+  { key: 'drinks.soda', label: 'Drinks: Soda' },
+  { key: 'drinks.water', label: 'Drinks: Water' },
+  { key: 'drinks.beer', label: 'Drinks: Beer & Cider' },
+  { key: 'breakfast.sluts', label: 'Breakfast: Sluts' },
+  { key: 'breakfast.handJobs', label: 'Breakfast: Hand Jobs' },
+  { key: 'breakfast.bevs', label: 'Breakfast: Beverages' },
+];
+
+const getMenuItemsByGroup = (menuData, groupKey) => {
+  switch (groupKey) {
+    case 'dogs':
+      return menuData.dogs;
+    case 'sides':
+      return menuData.sides;
+    case 'drinks.soda':
+      return menuData.drinks.soda;
+    case 'drinks.water':
+      return menuData.drinks.water;
+    case 'drinks.beer':
+      return menuData.drinks.beer;
+    case 'breakfast.sluts':
+      return menuData.breakfast.sluts;
+    case 'breakfast.handJobs':
+      return menuData.breakfast.handJobs;
+    case 'breakfast.bevs':
+      return menuData.breakfast.bevs;
+    default:
+      return [];
+  }
+};
+
+const setMenuItemsByGroup = (menuData, groupKey, nextItems) => {
+  switch (groupKey) {
+    case 'dogs':
+      return { ...menuData, dogs: nextItems };
+    case 'sides':
+      return { ...menuData, sides: nextItems };
+    case 'drinks.soda':
+      return { ...menuData, drinks: { ...menuData.drinks, soda: nextItems } };
+    case 'drinks.water':
+      return { ...menuData, drinks: { ...menuData.drinks, water: nextItems } };
+    case 'drinks.beer':
+      return { ...menuData, drinks: { ...menuData.drinks, beer: nextItems } };
+    case 'breakfast.sluts':
+      return { ...menuData, breakfast: { ...menuData.breakfast, sluts: nextItems } };
+    case 'breakfast.handJobs':
+      return { ...menuData, breakfast: { ...menuData.breakfast, handJobs: nextItems } };
+    case 'breakfast.bevs':
+      return { ...menuData, breakfast: { ...menuData.breakfast, bevs: nextItems } };
+    default:
+      return menuData;
+  }
+};
+
+const AdminLoginView = ({ onLogin, onNavigate, errorMessage }) => {
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onLogin(password);
+  };
+
+  return (
+    <div className="pt-32 pb-16 px-4 bg-zinc-950 min-h-screen text-white">
+      <div className="max-w-md mx-auto border border-zinc-800 bg-zinc-900 p-6 md:p-8">
+        <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">CRM Login</h2>
+        <p className="text-zinc-400 mb-6">Use the admin password to manage menu, locations, merch, and promos.</p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-700 text-white px-4 py-3 focus:outline-none focus:border-amber-500"
+              required
+            />
+          </div>
+          {errorMessage && <p className="text-red-400 text-sm">{errorMessage}</p>}
+          <button
+            type="submit"
+            className="w-full bg-amber-500 text-black font-black uppercase tracking-wide py-3 hover:bg-amber-400 transition-colors"
+          >
+            Login
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate('home')}
+            className="w-full border border-zinc-700 text-zinc-300 font-bold uppercase tracking-wide py-3 hover:border-zinc-500 transition-colors"
+          >
+            Back To Site
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const AdminDashboard = ({ crmData, setCrmData, onLogout }) => {
+  const [activeTab, setActiveTab] = useState('menu');
+  const [menuGroupKey, setMenuGroupKey] = useState('dogs');
+  const [newMenuItem, setNewMenuItem] = useState({
+    name: '',
+    price: '',
+    desc: '',
+    bun: '',
+    heat: false,
+    modifiable: true,
+  });
+  const [newIngredient, setNewIngredient] = useState({ name: '', price: '', category: 'dog-other' });
+  const [newLocation, setNewLocation] = useState({
+    area: '',
+    address: '',
+    hours: '',
+    phone: '',
+    status: 'OPEN NOW',
+    image: '',
+    latitude: '',
+    longitude: '',
+  });
+  const [newMerch, setNewMerch] = useState({
+    item: '',
+    price: '',
+    desc: '',
+    image: '',
+    imageAspect: 'wide',
+  });
+
+  const isDogGroup = menuGroupKey === 'dogs';
+  const menuItems = getMenuItemsByGroup(crmData.menu, menuGroupKey);
+  const defaultDogIngredientIds = crmData.ingredients
+    .filter((ingredient) => ingredient.active !== false && ingredient.category.startsWith('dog-'))
+    .map((ingredient) => ingredient.id);
+  const configurableIngredients = crmData.ingredients.filter((ingredient) => ingredient.active !== false);
+  const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+  const updateMenuItems = (updater) => {
+    setCrmData((prevData) => {
+      const currentItems = getMenuItemsByGroup(prevData.menu, menuGroupKey);
+      const nextItems = typeof updater === 'function' ? updater(currentItems) : updater;
+      return {
+        ...prevData,
+        menu: setMenuItemsByGroup(prevData.menu, menuGroupKey, nextItems),
+      };
+    });
+  };
+
+  const addMenuItem = () => {
+    if (!newMenuItem.name.trim()) return;
+    const itemId = Date.now();
+    const menuItem = {
+      id: itemId,
+      name: newMenuItem.name.trim(),
+      price: Number(newMenuItem.price || 0),
+      desc: newMenuItem.desc || '',
+      active: true,
+    };
+
+    if (isDogGroup) {
+      menuItem.bun = newMenuItem.bun || '';
+      menuItem.heat = Boolean(newMenuItem.heat);
+      menuItem.modifiable = Boolean(newMenuItem.modifiable);
+      menuItem.allowedIngredientIds = menuItem.modifiable ? defaultDogIngredientIds : [];
+      menuItem.baseIngredientIds = [];
+    }
+
+    updateMenuItems((items) => [...items, menuItem]);
+    setNewMenuItem({ name: '', price: '', desc: '', bun: '', heat: false, modifiable: true });
+  };
+
+  const addIngredient = () => {
+    if (!newIngredient.name.trim()) return;
+    setCrmData((prevData) => ({
+      ...prevData,
+      ingredients: [
+        ...prevData.ingredients,
+        {
+          id: `ing-${toSlugId(newIngredient.name)}-${Date.now()}`,
+          name: newIngredient.name.trim(),
+          price: Number(newIngredient.price || 0),
+          category: newIngredient.category || 'other',
+          active: true,
+        },
+      ],
+    }));
+    setNewIngredient({ name: '', price: '', category: 'dog-other' });
+  };
+
+  const removeIngredient = (ingredientId) => {
+    setCrmData((prevData) => ({
+      ...prevData,
+      ingredients: prevData.ingredients.filter((ingredient) => ingredient.id !== ingredientId),
+      menu: {
+        ...prevData.menu,
+        dogs: prevData.menu.dogs.map((item) => ({
+          ...item,
+          allowedIngredientIds: asArray(item.allowedIngredientIds).filter((id) => id !== ingredientId),
+          baseIngredientIds: asArray(item.baseIngredientIds).filter((id) => id !== ingredientId),
+        })),
+      },
+    }));
+  };
+
+  const addLocation = () => {
+    if (!newLocation.area.trim() || !newLocation.address.trim()) return;
+    setCrmData((prevData) => ({
+      ...prevData,
+      locations: [
+        ...prevData.locations,
+        {
+          id: `location-${Date.now()}`,
+          area: newLocation.area.trim(),
+          address: newLocation.address.trim(),
+          hours: newLocation.hours.trim() || 'Daily: 5am - Midnight',
+          phone: newLocation.phone.trim(),
+          status: newLocation.status.trim() || 'OPEN NOW',
+          image: newLocation.image.trim() || hubHallImage,
+          latitude: Number(newLocation.latitude || 0),
+          longitude: Number(newLocation.longitude || 0),
+          active: true,
+          schedule: {
+            default: { open: '05:00', close: '24:00' },
+          },
+          holidayHours: [],
+        },
+      ],
+    }));
+    setNewLocation({
+      area: '',
+      address: '',
+      hours: '',
+      phone: '',
+      status: 'OPEN NOW',
+      image: '',
+      latitude: '',
+      longitude: '',
+    });
+  };
+
+  const addMerchItem = () => {
+    if (!newMerch.item.trim()) return;
+    setCrmData((prevData) => ({
+      ...prevData,
+      merch: [
+        ...prevData.merch,
+        {
+          id: Date.now(),
+          item: newMerch.item.trim(),
+          price: Number(newMerch.price || 0),
+          desc: newMerch.desc || '',
+          image: newMerch.image || '',
+          imageAspect: newMerch.imageAspect || 'wide',
+          active: true,
+        },
+      ],
+    }));
+    setNewMerch({ item: '', price: '', desc: '', image: '', imageAspect: 'wide' });
+  };
+
+  return (
+    <div className="pt-32 pb-16 px-4 bg-zinc-950 min-h-screen text-white">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <h2 className="text-4xl font-black tracking-tighter uppercase border-l-8 border-amber-500 pl-4">CRM Backend</h2>
+          <button
+            onClick={onLogout}
+            className="border border-zinc-700 px-4 py-2 uppercase font-black tracking-wider text-sm hover:border-amber-500 hover:text-amber-500 transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-6">
+          {['menu', 'ingredients', 'locations', 'merch', 'promo'].map((tabKey) => (
+            <button
+              key={tabKey}
+              onClick={() => setActiveTab(tabKey)}
+              className={`px-4 py-2 uppercase text-xs font-black tracking-widest border transition-colors ${
+                activeTab === tabKey
+                  ? 'bg-amber-500 text-black border-amber-500'
+                  : 'border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500'
+              }`}
+            >
+              {tabKey}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'menu' && (
+          <section className="bg-zinc-900 border border-zinc-800 p-6 space-y-6">
+            <div>
+              <label className="block text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Menu Group</label>
+              <select
+                value={menuGroupKey}
+                onChange={(event) => setMenuGroupKey(event.target.value)}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+              >
+                {MENU_GROUP_OPTIONS.map((group) => (
+                  <option key={group.key} value={group.key}>
+                    {group.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-4">
+              {menuItems.map((item) => (
+                <div key={item.id} className="border border-zinc-800 bg-zinc-950 p-4 space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="text-xs uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={item.active !== false}
+                        onChange={(event) =>
+                          updateMenuItems((items) =>
+                            items.map((entry) =>
+                              entry.id === item.id ? { ...entry, active: event.target.checked } : entry
+                            )
+                          )
+                        }
+                      />
+                      Active
+                    </label>
+                    <button
+                      onClick={() => updateMenuItems((items) => items.filter((entry) => entry.id !== item.id))}
+                      className="ml-auto text-red-400 text-xs uppercase font-black tracking-wider hover:text-red-300"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <input
+                      value={item.name || ''}
+                      onChange={(event) =>
+                        updateMenuItems((items) =>
+                          items.map((entry) =>
+                            entry.id === item.id ? { ...entry, name: event.target.value } : entry
+                          )
+                        )
+                      }
+                      className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                      placeholder="Name"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.price}
+                      onChange={(event) =>
+                        updateMenuItems((items) =>
+                          items.map((entry) =>
+                            entry.id === item.id ? { ...entry, price: Number(event.target.value || 0) } : entry
+                          )
+                        )
+                      }
+                      className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                      placeholder="Price"
+                    />
+                  </div>
+                  <textarea
+                    value={item.desc || ''}
+                    onChange={(event) =>
+                      updateMenuItems((items) =>
+                        items.map((entry) =>
+                          entry.id === item.id ? { ...entry, desc: event.target.value } : entry
+                        )
+                      )
+                    }
+                    className="w-full bg-zinc-900 border border-zinc-700 text-white px-3 py-2 min-h-[72px]"
+                    placeholder="Description"
+                  />
+
+                  {isDogGroup && (
+                    <div className="border border-zinc-800 p-3 space-y-3">
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <input
+                          value={item.bun || ''}
+                          onChange={(event) =>
+                            updateMenuItems((items) =>
+                              items.map((entry) =>
+                                entry.id === item.id ? { ...entry, bun: event.target.value } : entry
+                              )
+                            )
+                          }
+                          className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                          placeholder="Bun text"
+                        />
+                        <label className="text-xs uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(item.heat)}
+                            onChange={(event) =>
+                              updateMenuItems((items) =>
+                                items.map((entry) =>
+                                  entry.id === item.id ? { ...entry, heat: event.target.checked } : entry
+                                )
+                              )
+                            }
+                          />
+                          Char Finish Badge
+                        </label>
+                      </div>
+
+                      {!item.isCustom && (
+                        <>
+                          <label className="text-xs uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={item.modifiable !== false}
+                              onChange={(event) =>
+                                updateMenuItems((items) =>
+                                  items.map((entry) =>
+                                    entry.id === item.id
+                                      ? {
+                                          ...entry,
+                                          modifiable: event.target.checked,
+                                          allowedIngredientIds: event.target.checked
+                                            ? asArray(entry.allowedIngredientIds)
+                                            : [],
+                                          baseIngredientIds: event.target.checked
+                                            ? asArray(entry.baseIngredientIds)
+                                            : [],
+                                        }
+                                      : entry
+                                  )
+                                )
+                              }
+                            />
+                            Customer Can Customize
+                          </label>
+
+                          {item.modifiable !== false && (
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                  Allowed Ingredients
+                                </p>
+                                <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
+                                  {configurableIngredients.map((ingredient) => {
+                                    const isAllowed = asArray(item.allowedIngredientIds).includes(ingredient.id);
+                                    return (
+                                      <label
+                                        key={ingredient.id}
+                                        className="text-sm text-zinc-300 flex items-center gap-2"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isAllowed}
+                                          onChange={(event) =>
+                                            updateMenuItems((items) =>
+                                              items.map((entry) => {
+                                                if (entry.id !== item.id) return entry;
+                                                const currentAllowed = asArray(entry.allowedIngredientIds);
+                                                const nextAllowed = event.target.checked
+                                                  ? [...new Set([...currentAllowed, ingredient.id])]
+                                                  : currentAllowed.filter((id) => id !== ingredient.id);
+                                                return {
+                                                  ...entry,
+                                                  allowedIngredientIds: nextAllowed,
+                                                  baseIngredientIds: asArray(entry.baseIngredientIds).filter((id) =>
+                                                    nextAllowed.includes(id)
+                                                  ),
+                                                };
+                                              })
+                                            )
+                                          }
+                                        />
+                                        {ingredient.name}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              <div>
+                                <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                  Default Included (Subtract Allowed)
+                                </p>
+                                <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
+                                  {configurableIngredients
+                                    .filter((ingredient) =>
+                                      asArray(item.allowedIngredientIds).includes(ingredient.id)
+                                    )
+                                    .map((ingredient) => {
+                                      const isBase = asArray(item.baseIngredientIds).includes(ingredient.id);
+                                      return (
+                                        <label
+                                          key={ingredient.id}
+                                          className="text-sm text-zinc-300 flex items-center gap-2"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={isBase}
+                                            onChange={(event) =>
+                                              updateMenuItems((items) =>
+                                                items.map((entry) => {
+                                                  if (entry.id !== item.id) return entry;
+                                                  const currentBase = asArray(entry.baseIngredientIds);
+                                                  return {
+                                                    ...entry,
+                                                    baseIngredientIds: event.target.checked
+                                                      ? [...new Set([...currentBase, ingredient.id])]
+                                                      : currentBase.filter((id) => id !== ingredient.id),
+                                                  };
+                                                })
+                                              )
+                                            }
+                                          />
+                                          {ingredient.name}
+                                        </label>
+                                      );
+                                    })}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-zinc-800 pt-6">
+              <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-3">Add New Menu Item</p>
+              <div className="grid md:grid-cols-2 gap-3 mb-3">
+                <input
+                  value={newMenuItem.name}
+                  onChange={(event) => setNewMenuItem((prev) => ({ ...prev, name: event.target.value }))}
+                  className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                  placeholder="Item name"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newMenuItem.price}
+                  onChange={(event) => setNewMenuItem((prev) => ({ ...prev, price: event.target.value }))}
+                  className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                  placeholder="Price"
+                />
+              </div>
+              <textarea
+                value={newMenuItem.desc}
+                onChange={(event) => setNewMenuItem((prev) => ({ ...prev, desc: event.target.value }))}
+                className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 min-h-[72px] mb-3"
+                placeholder="Description"
+              />
+              {isDogGroup && (
+                <div className="grid md:grid-cols-3 gap-3 mb-3">
+                  <input
+                    value={newMenuItem.bun}
+                    onChange={(event) => setNewMenuItem((prev) => ({ ...prev, bun: event.target.value }))}
+                    className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                    placeholder="Bun text"
+                  />
+                  <label className="text-xs uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={newMenuItem.heat}
+                      onChange={(event) => setNewMenuItem((prev) => ({ ...prev, heat: event.target.checked }))}
+                    />
+                    Char Finish
+                  </label>
+                  <label className="text-xs uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={newMenuItem.modifiable}
+                      onChange={(event) =>
+                        setNewMenuItem((prev) => ({ ...prev, modifiable: event.target.checked }))
+                      }
+                    />
+                    Customizable
+                  </label>
+                </div>
+              )}
+              <button
+                onClick={addMenuItem}
+                className="bg-amber-500 text-black font-black uppercase tracking-wide px-5 py-3 hover:bg-amber-400 transition-colors"
+              >
+                Add Item
+              </button>
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'ingredients' && (
+          <section className="bg-zinc-900 border border-zinc-800 p-6 space-y-4">
+            <div className="grid md:grid-cols-3 gap-3">
+              <input
+                value={newIngredient.name}
+                onChange={(event) => setNewIngredient((prev) => ({ ...prev, name: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                placeholder="Ingredient name"
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={newIngredient.price}
+                onChange={(event) => setNewIngredient((prev) => ({ ...prev, price: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                placeholder="Price"
+              />
+              <select
+                value={newIngredient.category}
+                onChange={(event) => setNewIngredient((prev) => ({ ...prev, category: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+              >
+                <option value="dog-veg">Dog Veg</option>
+                <option value="dog-other">Dog Other</option>
+                <option value="dog-protein">Dog Protein</option>
+                <option value="dog-cheese">Dog Cheese</option>
+                <option value="dog-condiments">Dog Condiments</option>
+                <option value="breakfast">Breakfast</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <button
+              onClick={addIngredient}
+              className="bg-amber-500 text-black font-black uppercase tracking-wide px-5 py-3 hover:bg-amber-400 transition-colors"
+            >
+              Add Ingredient
+            </button>
+
+            <div className="space-y-3 border-t border-zinc-800 pt-4">
+              {crmData.ingredients.map((ingredient) => (
+                <div key={ingredient.id} className="grid md:grid-cols-6 gap-3 items-center bg-zinc-950 border border-zinc-800 p-3">
+                  <label className="text-xs uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={ingredient.active !== false}
+                      onChange={(event) =>
+                        setCrmData((prevData) => ({
+                          ...prevData,
+                          ingredients: prevData.ingredients.map((entry) =>
+                            entry.id === ingredient.id ? { ...entry, active: event.target.checked } : entry
+                          ),
+                        }))
+                      }
+                    />
+                    Active
+                  </label>
+                  <input
+                    value={ingredient.name}
+                    onChange={(event) =>
+                      setCrmData((prevData) => ({
+                        ...prevData,
+                        ingredients: prevData.ingredients.map((entry) =>
+                          entry.id === ingredient.id ? { ...entry, name: event.target.value } : entry
+                        ),
+                      }))
+                    }
+                    className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2 md:col-span-2"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={ingredient.price}
+                    onChange={(event) =>
+                      setCrmData((prevData) => ({
+                        ...prevData,
+                        ingredients: prevData.ingredients.map((entry) =>
+                          entry.id === ingredient.id
+                            ? { ...entry, price: Number(event.target.value || 0) }
+                            : entry
+                        ),
+                      }))
+                    }
+                    className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                  />
+                  <input
+                    value={ingredient.category}
+                    onChange={(event) =>
+                      setCrmData((prevData) => ({
+                        ...prevData,
+                        ingredients: prevData.ingredients.map((entry) =>
+                          entry.id === ingredient.id ? { ...entry, category: event.target.value } : entry
+                        ),
+                      }))
+                    }
+                    className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                  />
+                  <button
+                    onClick={() => removeIngredient(ingredient.id)}
+                    className="text-red-400 text-xs uppercase font-black tracking-wider hover:text-red-300"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'locations' && (
+          <section className="bg-zinc-900 border border-zinc-800 p-6 space-y-6">
+            <div className="grid md:grid-cols-3 gap-3">
+              <input
+                value={newLocation.area}
+                onChange={(event) => setNewLocation((prev) => ({ ...prev, area: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                placeholder="Location Name"
+              />
+              <input
+                value={newLocation.address}
+                onChange={(event) => setNewLocation((prev) => ({ ...prev, address: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2 md:col-span-2"
+                placeholder="Address"
+              />
+              <input
+                value={newLocation.hours}
+                onChange={(event) => setNewLocation((prev) => ({ ...prev, hours: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                placeholder="Hours label"
+              />
+              <input
+                value={newLocation.phone}
+                onChange={(event) => setNewLocation((prev) => ({ ...prev, phone: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                placeholder="Phone"
+              />
+              <input
+                value={newLocation.image}
+                onChange={(event) => setNewLocation((prev) => ({ ...prev, image: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                placeholder="Image URL"
+              />
+            </div>
+            <button
+              onClick={addLocation}
+              className="bg-amber-500 text-black font-black uppercase tracking-wide px-5 py-3 hover:bg-amber-400 transition-colors"
+            >
+              Add Location
+            </button>
+
+            <div className="space-y-4 border-t border-zinc-800 pt-4">
+              {crmData.locations.map((location) => (
+                <div key={location.id} className="border border-zinc-800 bg-zinc-950 p-4 space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="text-xs uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={location.active !== false}
+                        onChange={(event) =>
+                          setCrmData((prevData) => ({
+                            ...prevData,
+                            locations: prevData.locations.map((entry) =>
+                              entry.id === location.id ? { ...entry, active: event.target.checked } : entry
+                            ),
+                          }))
+                        }
+                      />
+                      Active
+                    </label>
+                    <button
+                      onClick={() =>
+                        setCrmData((prevData) => ({
+                          ...prevData,
+                          locations: prevData.locations.filter((entry) => entry.id !== location.id),
+                        }))
+                      }
+                      className="ml-auto text-red-400 text-xs uppercase font-black tracking-wider hover:text-red-300"
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <input
+                      value={location.area}
+                      onChange={(event) =>
+                        setCrmData((prevData) => ({
+                          ...prevData,
+                          locations: prevData.locations.map((entry) =>
+                            entry.id === location.id ? { ...entry, area: event.target.value } : entry
+                          ),
+                        }))
+                      }
+                      className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                    />
+                    <input
+                      value={location.address}
+                      onChange={(event) =>
+                        setCrmData((prevData) => ({
+                          ...prevData,
+                          locations: prevData.locations.map((entry) =>
+                            entry.id === location.id ? { ...entry, address: event.target.value } : entry
+                          ),
+                        }))
+                      }
+                      className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                    />
+                    <input
+                      value={location.hours || ''}
+                      onChange={(event) =>
+                        setCrmData((prevData) => ({
+                          ...prevData,
+                          locations: prevData.locations.map((entry) =>
+                            entry.id === location.id ? { ...entry, hours: event.target.value } : entry
+                          ),
+                        }))
+                      }
+                      className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                    />
+                    <input
+                      value={location.phone || ''}
+                      onChange={(event) =>
+                        setCrmData((prevData) => ({
+                          ...prevData,
+                          locations: prevData.locations.map((entry) =>
+                            entry.id === location.id ? { ...entry, phone: event.target.value } : entry
+                          ),
+                        }))
+                      }
+                      className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">
+                      Weekly Schedule (24h)
+                    </p>
+                    <div className="grid md:grid-cols-2 gap-2">
+                      {weekdayKeys.map((dayKey) => {
+                        const daySchedule = location.schedule?.[dayKey] || location.schedule?.default || { open: '09:00', close: '17:00' };
+                        return (
+                          <div key={dayKey} className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-500">
+                            <span className="w-8">{dayKey}</span>
+                            <input
+                              type="text"
+                              value={daySchedule.open}
+                              onChange={(event) =>
+                                setCrmData((prevData) => ({
+                                  ...prevData,
+                                  locations: prevData.locations.map((entry) =>
+                                    entry.id === location.id
+                                      ? {
+                                          ...entry,
+                                          schedule: {
+                                            ...(entry.schedule || {}),
+                                            [dayKey]: {
+                                              ...(entry.schedule?.[dayKey] || daySchedule),
+                                              open: event.target.value,
+                                            },
+                                          },
+                                        }
+                                      : entry
+                                  ),
+                                }))
+                              }
+                              className="bg-zinc-900 border border-zinc-700 text-white px-2 py-1"
+                              placeholder="HH:MM"
+                            />
+                            <span>-</span>
+                            <input
+                              type="text"
+                              value={daySchedule.close}
+                              onChange={(event) =>
+                                setCrmData((prevData) => ({
+                                  ...prevData,
+                                  locations: prevData.locations.map((entry) =>
+                                    entry.id === location.id
+                                      ? {
+                                          ...entry,
+                                          schedule: {
+                                            ...(entry.schedule || {}),
+                                            [dayKey]: {
+                                              ...(entry.schedule?.[dayKey] || daySchedule),
+                                              close: event.target.value,
+                                            },
+                                          },
+                                        }
+                                      : entry
+                                  ),
+                                }))
+                              }
+                              className="bg-zinc-900 border border-zinc-700 text-white px-2 py-1"
+                              placeholder="HH:MM"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest">Holiday Hours</p>
+                      <button
+                        onClick={() =>
+                          setCrmData((prevData) => ({
+                            ...prevData,
+                            locations: prevData.locations.map((entry) =>
+                              entry.id === location.id
+                                ? {
+                                    ...entry,
+                                    holidayHours: [
+                                      ...asArray(entry.holidayHours),
+                                      {
+                                        id: `holiday-${Date.now()}-${Math.random()}`,
+                                        date: '',
+                                        label: '',
+                                        open: '09:00',
+                                        close: '17:00',
+                                        closed: false,
+                                      },
+                                    ],
+                                  }
+                                : entry
+                            ),
+                          }))
+                        }
+                        className="text-amber-500 text-xs font-black uppercase tracking-wider hover:text-amber-400"
+                      >
+                        Add Holiday
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {asArray(location.holidayHours).map((holidayEntry) => (
+                        <div key={holidayEntry.id} className="grid md:grid-cols-6 gap-2 items-center">
+                          <input
+                            type="date"
+                            value={holidayEntry.date}
+                            onChange={(event) =>
+                              setCrmData((prevData) => ({
+                                ...prevData,
+                                locations: prevData.locations.map((entry) =>
+                                  entry.id === location.id
+                                    ? {
+                                        ...entry,
+                                        holidayHours: asArray(entry.holidayHours).map((h) =>
+                                          h.id === holidayEntry.id ? { ...h, date: event.target.value } : h
+                                        ),
+                                      }
+                                    : entry
+                                ),
+                              }))
+                            }
+                            className="bg-zinc-900 border border-zinc-700 text-white px-2 py-1"
+                          />
+                          <input
+                            value={holidayEntry.label}
+                            onChange={(event) =>
+                              setCrmData((prevData) => ({
+                                ...prevData,
+                                locations: prevData.locations.map((entry) =>
+                                  entry.id === location.id
+                                    ? {
+                                        ...entry,
+                                        holidayHours: asArray(entry.holidayHours).map((h) =>
+                                          h.id === holidayEntry.id ? { ...h, label: event.target.value } : h
+                                        ),
+                                      }
+                                    : entry
+                                ),
+                              }))
+                            }
+                            placeholder="Holiday label"
+                            className="bg-zinc-900 border border-zinc-700 text-white px-2 py-1"
+                          />
+                          <label className="text-xs uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-1">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(holidayEntry.closed)}
+                              onChange={(event) =>
+                                setCrmData((prevData) => ({
+                                  ...prevData,
+                                  locations: prevData.locations.map((entry) =>
+                                    entry.id === location.id
+                                      ? {
+                                          ...entry,
+                                          holidayHours: asArray(entry.holidayHours).map((h) =>
+                                            h.id === holidayEntry.id ? { ...h, closed: event.target.checked } : h
+                                          ),
+                                        }
+                                      : entry
+                                  ),
+                                }))
+                              }
+                            />
+                            Closed
+                          </label>
+                          <input
+                            type="text"
+                            value={holidayEntry.open}
+                            onChange={(event) =>
+                              setCrmData((prevData) => ({
+                                ...prevData,
+                                locations: prevData.locations.map((entry) =>
+                                  entry.id === location.id
+                                    ? {
+                                        ...entry,
+                                        holidayHours: asArray(entry.holidayHours).map((h) =>
+                                          h.id === holidayEntry.id ? { ...h, open: event.target.value } : h
+                                        ),
+                                      }
+                                    : entry
+                                ),
+                              }))
+                            }
+                            disabled={holidayEntry.closed}
+                            className="bg-zinc-900 border border-zinc-700 text-white px-2 py-1 disabled:opacity-50"
+                            placeholder="HH:MM"
+                          />
+                          <input
+                            type="text"
+                            value={holidayEntry.close}
+                            onChange={(event) =>
+                              setCrmData((prevData) => ({
+                                ...prevData,
+                                locations: prevData.locations.map((entry) =>
+                                  entry.id === location.id
+                                    ? {
+                                        ...entry,
+                                        holidayHours: asArray(entry.holidayHours).map((h) =>
+                                          h.id === holidayEntry.id ? { ...h, close: event.target.value } : h
+                                        ),
+                                      }
+                                    : entry
+                                ),
+                              }))
+                            }
+                            disabled={holidayEntry.closed}
+                            className="bg-zinc-900 border border-zinc-700 text-white px-2 py-1 disabled:opacity-50"
+                            placeholder="HH:MM"
+                          />
+                          <button
+                            onClick={() =>
+                              setCrmData((prevData) => ({
+                                ...prevData,
+                                locations: prevData.locations.map((entry) =>
+                                  entry.id === location.id
+                                    ? {
+                                        ...entry,
+                                        holidayHours: asArray(entry.holidayHours).filter(
+                                          (h) => h.id !== holidayEntry.id
+                                        ),
+                                      }
+                                    : entry
+                                ),
+                              }))
+                            }
+                            className="text-red-400 text-xs uppercase font-black tracking-wider hover:text-red-300"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'merch' && (
+          <section className="bg-zinc-900 border border-zinc-800 p-6 space-y-6">
+            <div className="grid md:grid-cols-2 gap-3">
+              <input
+                value={newMerch.item}
+                onChange={(event) => setNewMerch((prev) => ({ ...prev, item: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                placeholder="Merch title"
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={newMerch.price}
+                onChange={(event) => setNewMerch((prev) => ({ ...prev, price: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+                placeholder="Price"
+              />
+              <input
+                value={newMerch.desc}
+                onChange={(event) => setNewMerch((prev) => ({ ...prev, desc: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2 md:col-span-2"
+                placeholder="Description"
+              />
+              <input
+                value={newMerch.image}
+                onChange={(event) => setNewMerch((prev) => ({ ...prev, image: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2 md:col-span-2"
+                placeholder="Image URL"
+              />
+              <select
+                value={newMerch.imageAspect}
+                onChange={(event) => setNewMerch((prev) => ({ ...prev, imageAspect: event.target.value }))}
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+              >
+                <option value="wide">Wide</option>
+                <option value="square">Square</option>
+              </select>
+            </div>
+            <button
+              onClick={addMerchItem}
+              className="bg-amber-500 text-black font-black uppercase tracking-wide px-5 py-3 hover:bg-amber-400 transition-colors"
+            >
+              Add Merch Item
+            </button>
+
+            <div className="space-y-3 border-t border-zinc-800 pt-4">
+              {crmData.merch.map((item) => (
+                <div key={item.id} className="grid md:grid-cols-6 gap-3 items-center bg-zinc-950 border border-zinc-800 p-3">
+                  <label className="text-xs uppercase font-bold tracking-wider text-zinc-400 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={item.active !== false}
+                      onChange={(event) =>
+                        setCrmData((prevData) => ({
+                          ...prevData,
+                          merch: prevData.merch.map((entry) =>
+                            entry.id === item.id ? { ...entry, active: event.target.checked } : entry
+                          ),
+                        }))
+                      }
+                    />
+                    Active
+                  </label>
+                  <input
+                    value={item.item}
+                    onChange={(event) =>
+                      setCrmData((prevData) => ({
+                        ...prevData,
+                        merch: prevData.merch.map((entry) =>
+                          entry.id === item.id ? { ...entry, item: event.target.value } : entry
+                        ),
+                      }))
+                    }
+                    className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={item.price}
+                    onChange={(event) =>
+                      setCrmData((prevData) => ({
+                        ...prevData,
+                        merch: prevData.merch.map((entry) =>
+                          entry.id === item.id ? { ...entry, price: Number(event.target.value || 0) } : entry
+                        ),
+                      }))
+                    }
+                    className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                  />
+                  <input
+                    value={item.image || ''}
+                    onChange={(event) =>
+                      setCrmData((prevData) => ({
+                        ...prevData,
+                        merch: prevData.merch.map((entry) =>
+                          entry.id === item.id ? { ...entry, image: event.target.value } : entry
+                        ),
+                      }))
+                    }
+                    className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2 md:col-span-2"
+                    placeholder="Image URL"
+                  />
+                  <button
+                    onClick={() =>
+                      setCrmData((prevData) => ({
+                        ...prevData,
+                        merch: prevData.merch.filter((entry) => entry.id !== item.id),
+                      }))
+                    }
+                    className="text-red-400 text-xs uppercase font-black tracking-wider hover:text-red-300"
+                  >
+                    Delete
+                  </button>
+                  <textarea
+                    value={item.desc || ''}
+                    onChange={(event) =>
+                      setCrmData((prevData) => ({
+                        ...prevData,
+                        merch: prevData.merch.map((entry) =>
+                          entry.id === item.id ? { ...entry, desc: event.target.value } : entry
+                        ),
+                      }))
+                    }
+                    className="md:col-span-6 bg-zinc-900 border border-zinc-700 text-white px-3 py-2 min-h-[56px]"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'promo' && (
+          <section className="bg-zinc-900 border border-zinc-800 p-6 space-y-4">
+            <label className="text-xs uppercase font-bold tracking-widest text-zinc-400 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={Boolean(crmData.promoBanner?.active)}
+                onChange={(event) =>
+                  setCrmData((prevData) => ({
+                    ...prevData,
+                    promoBanner: { ...prevData.promoBanner, active: event.target.checked },
+                  }))
+                }
+              />
+              Promo Banner Active
+            </label>
+            <input
+              value={crmData.promoBanner?.title || ''}
+              onChange={(event) =>
+                setCrmData((prevData) => ({
+                  ...prevData,
+                  promoBanner: { ...prevData.promoBanner, title: event.target.value },
+                }))
+              }
+              className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+              placeholder="Promo title (optional)"
+            />
+            <textarea
+              value={crmData.promoBanner?.message || ''}
+              onChange={(event) =>
+                setCrmData((prevData) => ({
+                  ...prevData,
+                  promoBanner: { ...prevData.promoBanner, message: event.target.value },
+                }))
+              }
+              className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 min-h-[72px]"
+              placeholder="Promo message"
+            />
+            <input
+              value={crmData.promoBanner?.link || ''}
+              onChange={(event) =>
+                setCrmData((prevData) => ({
+                  ...prevData,
+                  promoBanner: { ...prevData.promoBanner, link: event.target.value },
+                }))
+              }
+              className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2"
+              placeholder="Promo link (optional)"
+            />
+          </section>
+        )}
+
+        <p className="text-zinc-500 text-xs mt-6">Changes are saved automatically to your browser storage.</p>
+      </div>
+    </div>
+  );
+};
 
 const StickyCart = ({ cartTotal, cartCount, onNavigate, activeTab }) => {
   if (cartCount === 0 || activeTab === 'cart') return null;
@@ -2231,6 +3924,12 @@ const DogHub = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [crmData, setCrmData] = useState(loadCrmData);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+  });
+  const [adminLoginError, setAdminLoginError] = useState('');
   const [cart, setCart] = useState([]);
   const [menuSubTab, setMenuSubTab] = useState('breakfast');
   const [selectedLocationId, setSelectedLocationId] = useState(null);
@@ -2242,7 +3941,27 @@ const DogHub = () => {
   const [pickupAt, setPickupAt] = useState(() => normalizeToMinute(new Date()));
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
 
-  const selectedLocation = locations.find((location) => location.id === selectedLocationId) || null;
+  const menuDogs = asArray(crmData?.menu?.dogs).filter((item) => item.active !== false);
+  const menuSides = asArray(crmData?.menu?.sides).filter((item) => item.active !== false);
+  const menuDrinks = {
+    soda: asArray(crmData?.menu?.drinks?.soda).filter((item) => item.active !== false),
+    water: asArray(crmData?.menu?.drinks?.water).filter((item) => item.active !== false),
+    beer: asArray(crmData?.menu?.drinks?.beer).filter((item) => item.active !== false),
+  };
+  const menuBreakfastSluts = asArray(crmData?.menu?.breakfast?.sluts).filter((item) => item.active !== false);
+  const menuBreakfastHandJobs = asArray(crmData?.menu?.breakfast?.handJobs).filter(
+    (item) => item.active !== false
+  );
+  const menuBreakfastBevs = asArray(crmData?.menu?.breakfast?.bevs).filter((item) => item.active !== false);
+  const breakfastItemIdsSet = new Set([
+    ...menuBreakfastSluts.map((item) => item.id),
+    ...menuBreakfastHandJobs.map((item) => item.id),
+    ...menuBreakfastBevs.map((item) => item.id),
+  ]);
+  const activeIngredients = asArray(crmData?.ingredients).filter((ingredient) => ingredient.active !== false);
+  const activeLocations = asArray(crmData?.locations).filter((location) => location.active !== false);
+  const activeMerchItems = asArray(crmData?.merch).filter((item) => item.active !== false);
+  const selectedLocation = activeLocations.find((location) => location.id === selectedLocationId) || null;
   const currentTime = normalizeToMinute(new Date(currentTimeMs));
   const normalizedPickupAt = normalizeToMinute(pickupAt);
   const latestPickupTime = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
@@ -2259,7 +3978,7 @@ const DogHub = () => {
       return isLocationOpenAt(selectedLocation, candidateDateTime);
     }
 
-    return locations.some((location) => isLocationOpenAt(location, candidateDateTime));
+    return activeLocations.some((location) => isLocationOpenAt(location, candidateDateTime));
   };
 
   const getAvailableQuarterHoursForDate = (dateValue) =>
@@ -2301,6 +4020,22 @@ const DogHub = () => {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(CRM_STORAGE_KEY, JSON.stringify(crmData));
+  }, [crmData]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.setItem(ADMIN_SESSION_KEY, isAdminAuthenticated ? 'true' : 'false');
+  }, [isAdminAuthenticated]);
+
+  useEffect(() => {
+    if (!selectedLocationId) return;
+    if (activeLocations.some((location) => location.id === selectedLocationId)) return;
+    setSelectedLocationId(null);
+  }, [activeLocations, selectedLocationId]);
+
+  useEffect(() => {
     if (!isOrderAheadEnabled || pickupDateOptions.length === 0) return;
 
     const isSelectedDateAvailable = pickupDateOptions.some((dateOption) => dateOption.value === pickupDateValue);
@@ -2322,7 +4057,24 @@ const DogHub = () => {
     setActiveTab(tab);
     if (subTab && tab === 'menu') setMenuSubTab(subTab);
     setIsMenuOpen(false);
+    if (tab !== 'admin-login') setAdminLoginError('');
     window.scrollTo(0, 0);
+  };
+
+  const handleAdminLogin = (password) => {
+    if (password === ADMIN_PASSWORD) {
+      setIsAdminAuthenticated(true);
+      setAdminLoginError('');
+      setActiveTab('admin');
+      return;
+    }
+    setAdminLoginError('Invalid password.');
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdminAuthenticated(false);
+    setAdminLoginError('');
+    setActiveTab('home');
   };
 
   const addItemToCart = (item) => {
@@ -2400,7 +4152,12 @@ const DogHub = () => {
 
   const handleLocationSelected = (locationId, options = {}) => {
     const { navigateToMenu = false } = options;
-    const chosenLocation = locations.find((location) => location.id === locationId);
+    const chosenLocation = activeLocations.find((location) => location.id === locationId);
+    if (!chosenLocation) {
+      setLocationPickerError('That location is not currently available for ordering.');
+      setIsLocationPickerOpen(true);
+      return;
+    }
     const chosenLocationIsOpen = chosenLocation ? isLocationOpenAt(chosenLocation, effectivePickupAt) : false;
     const canApplyPendingItem = pendingCartItem ? chosenLocationIsOpen && !pickupOutOfRangeError : true;
 
@@ -2429,6 +4186,11 @@ const DogHub = () => {
   };
 
   const handleUseClosestLocation = () => {
+    if (activeLocations.length === 0) {
+      setLocationPickerError('No active locations are available right now.');
+      return;
+    }
+
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setLocationPickerError('Location services are unavailable. Please choose a location manually.');
       return;
@@ -2439,7 +4201,7 @@ const DogHub = () => {
 
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        const nearestLocation = getClosestLocation(coords.latitude, coords.longitude);
+        const nearestLocation = getClosestLocation(activeLocations, coords.latitude, coords.longitude);
         setIsResolvingClosestLocation(false);
 
         if (!nearestLocation) {
@@ -2458,7 +4220,13 @@ const DogHub = () => {
   };
 
   const addToCart = (item) => {
-    if (breakfastItemIds.has(item.id) && !isBreakfastAvailableForPickup) return;
+    if (breakfastItemIdsSet.has(item.id) && !isBreakfastAvailableForPickup) return;
+
+    if (activeLocations.length === 0) {
+      setLocationPickerError('No active locations are available right now.');
+      setIsLocationPickerOpen(true);
+      return;
+    }
 
     if (pickupOutOfRangeError) {
       setLocationPickerError(pickupOutOfRangeError);
@@ -2522,6 +4290,7 @@ const DogHub = () => {
             cart={cart}
             addToCart={addToCart}
             removeOneFromCart={removeOneFromCart}
+            addCustomizedItemToCart={addItemToCart}
             activeCategory={menuSubTab}
             setActiveCategory={setMenuSubTab}
             selectedLocation={selectedLocation}
@@ -2535,11 +4304,20 @@ const DogHub = () => {
             onPickupTimeSlotChange={handlePickupTimeSlotChange}
             pickupTimeError={pickupTimeError}
             isBreakfastAvailableForPickup={isBreakfastAvailableForPickup}
+            breakfastItemIdsSet={breakfastItemIdsSet}
+            dogsMenuItems={menuDogs}
+            sidesMenuItems={menuSides}
+            drinksMenuItems={menuDrinks}
+            breakfastSlutsItems={menuBreakfastSluts}
+            breakfastHandJobsItems={menuBreakfastHandJobs}
+            breakfastBevsItems={menuBreakfastBevs}
+            ingredientOptions={activeIngredients}
           />
         );
       case 'locations':
         return (
           <LocationsList
+            locationsList={activeLocations}
             selectedLocationId={selectedLocationId}
             onOrderHere={(locationId) => handleLocationSelected(locationId, { navigateToMenu: true })}
             onUseClosestLocation={handleUseClosestLocation}
@@ -2549,9 +4327,17 @@ const DogHub = () => {
       case 'about':
         return <AboutSection />;
       case 'merch':
-        return <MerchSection addToCart={addToCart} />;
+        return <MerchSection addToCart={addToCart} merchItems={activeMerchItems} />;
       case 'investors':
         return <InvestorsSection />;
+      case 'admin-login':
+        return <AdminLoginView onLogin={handleAdminLogin} onNavigate={navigate} errorMessage={adminLoginError} />;
+      case 'admin':
+        return isAdminAuthenticated ? (
+          <AdminDashboard crmData={crmData} setCrmData={setCrmData} onLogout={handleAdminLogout} />
+        ) : (
+          <AdminLoginView onLogin={handleAdminLogin} onNavigate={navigate} errorMessage={adminLoginError} />
+        );
       case 'customizer':
         return <LynnerCustomizer onNavigate={navigate} addToCart={addToCart} />;
       case 'cart':
@@ -2598,10 +4384,11 @@ const DogHub = () => {
         scrolled={scrolled}
         cartCount={cartCount}
       />
+      <PromoBanner promoBanner={crmData.promoBanner} />
       {renderContent()}
       <LocationPickerModal
         isOpen={isLocationPickerOpen}
-        locationsList={locations}
+        locationsList={activeLocations}
         pendingItemName={pendingCartItem?.name || pendingCartItem?.item}
         onClose={closeLocationPicker}
         onChooseLocation={(locationId) => handleLocationSelected(locationId)}
@@ -2609,7 +4396,7 @@ const DogHub = () => {
         isResolvingClosestLocation={isResolvingClosestLocation}
         errorMessage={locationPickerError}
       />
-      <Footer />
+      <Footer onOpenAdmin={() => navigate('admin-login')} />
       <StickyCart cartTotal={cartTotal} cartCount={cartCount} onNavigate={navigate} activeTab={activeTab} />
     </div>
   );
