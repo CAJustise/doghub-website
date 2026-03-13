@@ -550,6 +550,12 @@ const getReadableTextColor = (backgroundColor) => {
   return brightness > 150 ? '#111111' : '#f9fafb';
 };
 
+const normalizePromoScrollSeconds = (value, fallback = 78) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return fallback;
+  return Math.min(180, Math.max(15, Math.round(numericValue)));
+};
+
 const dogIngredientSeeds = [
   ...customizationData.toppings.veg.map((ingredient) => ({ ...ingredient, category: 'dog-veg' })),
   ...customizationData.toppings.other.map((ingredient) => ({ ...ingredient, category: 'dog-other' })),
@@ -662,6 +668,7 @@ const createDefaultCrmData = () => {
       link: '',
       backgroundColor: '#f59e0b',
       textColor: '#111111',
+      scrollDurationSeconds: 78,
     },
   };
 };
@@ -745,6 +752,10 @@ const loadCrmData = () => {
           defaults.promoBanner.backgroundColor
         ),
         textColor: normalizeHexColor(parsed?.promoBanner?.textColor, defaults.promoBanner.textColor),
+        scrollDurationSeconds: normalizePromoScrollSeconds(
+          parsed?.promoBanner?.scrollDurationSeconds,
+          defaults.promoBanner.scrollDurationSeconds
+        ),
       },
     };
   } catch (error) {
@@ -2668,6 +2679,7 @@ const PromoBanner = ({ promoBanner }) => {
 
   const bannerColor = normalizeHexColor(promoBanner.backgroundColor, '#f59e0b');
   const textColor = normalizeHexColor(promoBanner.textColor, getReadableTextColor(bannerColor));
+  const scrollDurationSeconds = normalizePromoScrollSeconds(promoBanner.scrollDurationSeconds, 78);
   const segmentText = [promoBanner.title, promoBanner.message].filter(Boolean).join(' | ');
 
   const renderSegment = (segmentKey) =>
@@ -2675,7 +2687,7 @@ const PromoBanner = ({ promoBanner }) => {
       <a
         key={segmentKey}
         href={promoBanner.link}
-        className="shrink-0 px-6 py-2 font-black uppercase tracking-widest whitespace-nowrap hover:opacity-80 transition-opacity"
+        className="shrink-0 px-6 py-2 font-black tracking-wide whitespace-nowrap hover:opacity-80 transition-opacity"
         style={{ color: textColor }}
       >
         {segmentText}
@@ -2683,7 +2695,7 @@ const PromoBanner = ({ promoBanner }) => {
     ) : (
       <span
         key={segmentKey}
-        className="shrink-0 px-6 py-2 font-black uppercase tracking-widest whitespace-nowrap"
+        className="shrink-0 px-6 py-2 font-black tracking-wide whitespace-nowrap"
         style={{ color: textColor }}
       >
         {segmentText}
@@ -2706,7 +2718,10 @@ const PromoBanner = ({ promoBanner }) => {
           }
         `}
       </style>
-      <div className="w-max min-w-full flex items-center" style={{ animation: 'doghub-promo-scroll 26s linear infinite' }}>
+      <div
+        className="w-max min-w-full flex items-center"
+        style={{ animation: `doghub-promo-scroll ${scrollDurationSeconds}s linear infinite` }}
+      >
         <div className="flex items-center">
           {Array.from({ length: 6 }, (_, index) => renderSegment(`promo-a-${index}`))}
         </div>
@@ -3986,6 +4001,32 @@ const AdminDashboard = ({ crmData, setCrmData, onLogout }) => {
                   placeholder="#111111"
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs uppercase font-bold tracking-widest text-zinc-400">Scroll Speed</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="15"
+                  max="180"
+                  step="1"
+                  value={normalizePromoScrollSeconds(crmData.promoBanner?.scrollDurationSeconds || 78)}
+                  onChange={(event) =>
+                    setCrmData((prevData) => ({
+                      ...prevData,
+                      promoBanner: {
+                        ...prevData.promoBanner,
+                        scrollDurationSeconds: normalizePromoScrollSeconds(event.target.value, 78),
+                      },
+                    }))
+                  }
+                  className="w-full accent-amber-500"
+                />
+                <span className="text-zinc-300 font-bold text-sm w-14 text-right">
+                  {normalizePromoScrollSeconds(crmData.promoBanner?.scrollDurationSeconds || 78)}s
+                </span>
+              </div>
+              <p className="text-zinc-500 text-xs">Higher value = slower scroll.</p>
             </div>
             <textarea
               value={crmData.promoBanner?.message || ''}
