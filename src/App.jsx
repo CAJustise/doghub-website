@@ -685,6 +685,34 @@ const MethodSection = () => (
   </div>
 );
 
+const HomeLexiconSection = () => (
+  <div className="bg-zinc-950 text-white py-12 px-4 border-b border-zinc-800">
+    <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-6">
+      <div className="bg-zinc-900 border border-zinc-800 p-6">
+        <p className="text-2xl font-black tracking-tight mb-2">slut | \ slət</p>
+        <p className="text-zinc-400 uppercase tracking-widest text-xs font-bold mb-4">adjective</p>
+        <p className="text-zinc-200 leading-relaxed mb-3">
+          1. Unapologetically rich, gloriously messy, and intentionally excessive.
+        </p>
+        <p className="text-zinc-200 leading-relaxed">
+          2. Pure culinary indulgence built to satisfy visceral cravings.
+        </p>
+      </div>
+
+      <div className="bg-zinc-900 border border-zinc-800 p-6">
+        <p className="text-2xl font-black tracking-tight mb-2">hand job | \ ˈhand-ˌjäb</p>
+        <p className="text-zinc-400 uppercase tracking-widest text-xs font-bold mb-4">noun</p>
+        <p className="text-zinc-200 leading-relaxed mb-3">
+          1. A one-handed, zero-utensil masterpiece.
+        </p>
+        <p className="text-zinc-200 leading-relaxed">
+          2. Portable perfection engineered to grab, hold, and devour on the move.
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
 const LynnerCustomizer = ({ onNavigate, addToCart }) => {
   const [selectedDog, setSelectedDog] = useState(null);
   const [selectedBun, setSelectedBun] = useState(null);
@@ -2539,6 +2567,7 @@ const DogHub = () => {
           <>
             <Hero onNavigate={navigate} />
             <MethodSection />
+            <HomeLexiconSection />
           </>
         );
     }
