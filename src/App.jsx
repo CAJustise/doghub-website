@@ -203,6 +203,9 @@ const locations = [
     image: hubHallImage,
     latitude: 42.3662,
     longitude: -71.0621,
+    schedule: {
+      default: { open: '05:00', close: '24:00' },
+    },
   },
   {
     id: 'south-station',
@@ -213,6 +216,9 @@ const locations = [
     image: southStationImage,
     latitude: 42.352271,
     longitude: -71.055242,
+    schedule: {
+      default: { open: '05:00', close: '24:00' },
+    },
   },
   {
     id: 'back-bay',
@@ -223,6 +229,9 @@ const locations = [
     image: backBayStationImage,
     latitude: 42.34735,
     longitude: -71.075727,
+    schedule: {
+      default: { open: '05:00', close: '24:00' },
+    },
   },
   {
     id: 'faneuil-hall',
@@ -233,8 +242,23 @@ const locations = [
     image: faneuilHallMarketplaceImage,
     latitude: 42.36012,
     longitude: -71.05677,
+    schedule: {
+      mon: { open: '10:00', close: '21:00' },
+      tue: { open: '10:00', close: '21:00' },
+      wed: { open: '10:00', close: '21:00' },
+      thu: { open: '10:00', close: '21:00' },
+      fri: { open: '10:00', close: '21:00' },
+      sat: { open: '10:00', close: '21:00' },
+      sun: { open: '11:00', close: '19:00' },
+    },
   },
 ];
+
+const breakfastItemIds = new Set([
+  ...breakfastSluts.map((item) => item.id),
+  ...breakfastHandJobs.map((item) => item.id),
+  ...breakfastBevs.map((item) => item.id),
+]);
 
 const getDirectionsLink = (address) => {
   const encodedAddress = encodeURIComponent(address);
@@ -253,6 +277,75 @@ const getDirectionsLink = (address) => {
 
   return `https://www.openstreetmap.org/search?query=${encodedAddress}`;
 };
+
+const easternTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+const weekdayShortToKey = {
+  Sun: 'sun',
+  Mon: 'mon',
+  Tue: 'tue',
+  Wed: 'wed',
+  Thu: 'thu',
+  Fri: 'fri',
+  Sat: 'sat',
+};
+
+const getEasternTimeParts = (date) => {
+  const parts = easternTimeFormatter.formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    weekday: weekdayShortToKey[values.weekday],
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+  };
+};
+
+const toMinutes = (timeText) => {
+  const [hour, minute] = timeText.split(':').map(Number);
+  return hour * 60 + minute;
+};
+
+const isWithinHoursWindow = (minutes, openMinutes, closeMinutes) => {
+  if (closeMinutes > openMinutes) return minutes >= openMinutes && minutes < closeMinutes;
+  if (closeMinutes < openMinutes) return minutes >= openMinutes || minutes < closeMinutes;
+  return true;
+};
+
+const isLocationOpenAt = (location, date) => {
+  const etParts = getEasternTimeParts(date);
+  const dayWindow = location.schedule?.[etParts.weekday] || location.schedule?.default;
+  if (!dayWindow) return false;
+
+  const openMinutes = toMinutes(dayWindow.open);
+  const closeMinutes = toMinutes(dayWindow.close);
+  const currentMinutes = etParts.hour * 60 + etParts.minute;
+
+  return isWithinHoursWindow(currentMinutes, openMinutes, closeMinutes);
+};
+
+const isBreakfastAvailableAt = (date) => {
+  const { hour, minute } = getEasternTimeParts(date);
+  const minutes = hour * 60 + minute;
+  return minutes >= 5 * 60 && minutes < 11 * 60;
+};
+
+const formatDateTimeLocal = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+};
+
+const normalizeToMinute = (date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes());
 
 const toRadians = (degrees) => (degrees * Math.PI) / 180;
 
@@ -783,7 +876,17 @@ const LynnerCustomizer = ({ onNavigate, addToCart }) => {
   );
 };
 
-const CartView = ({ cart, onRemove, onNavigate, selectedLocation }) => {
+const CartView = ({
+  cart,
+  onRemove,
+  onNavigate,
+  selectedLocation,
+  pickupAtValue,
+  pickupMinValue,
+  pickupMaxValue,
+  onPickupTimeChange,
+  pickupTimeError,
+}) => {
   const cartTotal = cart.reduce((acc, item) => acc + item.price, 0);
 
   return (
@@ -801,15 +904,29 @@ const CartView = ({ cart, onRemove, onNavigate, selectedLocation }) => {
         </h2>
 
         <div className="mb-8 border border-zinc-800 bg-zinc-900 p-4 flex items-center justify-between gap-4">
-          <div>
+          <div className="w-full">
             <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Pickup Location</p>
             <p className="text-white font-black text-sm md:text-base mt-1">
               {selectedLocation ? selectedLocation.area : 'Not selected yet'}
             </p>
+            <div className="mt-4">
+              <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
+                Pickup Time (Up To 24h Ahead)
+              </label>
+              <input
+                type="datetime-local"
+                value={pickupAtValue}
+                min={pickupMinValue}
+                max={pickupMaxValue}
+                onChange={(event) => onPickupTimeChange(event.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
+              />
+              {pickupTimeError && <p className="text-red-400 text-xs mt-2">{pickupTimeError}</p>}
+            </div>
           </div>
           <button
             onClick={() => onNavigate('locations')}
-            className="text-amber-500 hover:text-amber-400 text-xs md:text-sm font-black uppercase tracking-widest"
+            className="text-amber-500 hover:text-amber-400 text-xs md:text-sm font-black uppercase tracking-widest pt-1"
           >
             Change
           </button>
@@ -893,10 +1010,27 @@ const MenuList = ({
   activeCategory,
   setActiveCategory,
   selectedLocation,
+  pickupAtValue,
+  pickupMinValue,
+  pickupMaxValue,
+  onPickupTimeChange,
+  pickupTimeError,
+  isBreakfastAvailableForPickup,
 }) => {
+  const isItemAddDisabled = (item) =>
+    Boolean(pickupTimeError) || (breakfastItemIds.has(item.id) && !isBreakfastAvailableForPickup);
+
+  const getDisabledLabel = (item) => {
+    if (breakfastItemIds.has(item.id) && !isBreakfastAvailableForPickup) return 'UNAVAILABLE';
+    if (pickupTimeError) return 'CHECK PICKUP';
+    return null;
+  };
+
   const ItemCard = ({ item }) => {
     const qtyInCart = cart.filter((c) => c.id === item.id && !c.isCustom).length;
     const customCount = item.isCustom ? cart.filter((c) => c.id === item.id).length : 0;
+    const addDisabled = isItemAddDisabled(item);
+    const disabledLabel = getDisabledLabel(item);
 
     return (
       <div
@@ -944,16 +1078,27 @@ const MenuList = ({
                   <Minus size={18} />
                 </button>
                 <span className="font-black text-amber-500 px-2">{qtyInCart}</span>
-                <button onClick={() => addToCart(item)} className="p-3 hover:text-amber-500">
+                <button
+                  onClick={() => addToCart(item)}
+                  disabled={addDisabled}
+                  className="p-3 hover:text-amber-500 disabled:text-zinc-600 disabled:hover:text-zinc-600 disabled:cursor-not-allowed"
+                >
                   <Plus size={18} />
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => addToCart(item)}
-                className="w-full bg-white text-black hover:bg-amber-500 font-black uppercase text-sm px-4 py-3 tracking-wide flex justify-center items-center transition-colors"
+                disabled={addDisabled}
+                className="w-full bg-white text-black hover:bg-amber-500 font-black uppercase text-sm px-4 py-3 tracking-wide flex justify-center items-center transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed"
               >
-                ADD <Plus size={16} className="ml-1" />
+                {disabledLabel ? (
+                  disabledLabel
+                ) : (
+                  <>
+                    ADD <Plus size={16} className="ml-1" />
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -964,6 +1109,8 @@ const MenuList = ({
 
   const CompactRow = ({ item }) => {
     const qtyInCart = cart.filter((c) => c.id === item.id).length;
+    const addDisabled = isItemAddDisabled(item);
+    const disabledLabel = getDisabledLabel(item);
 
     return (
       <div className="bg-zinc-900 p-4 border border-zinc-800 flex justify-between items-center group">
@@ -979,13 +1126,21 @@ const MenuList = ({
                 <Minus size={14} />
               </button>
               <span className="font-black text-amber-500 text-sm w-4 text-center">{qtyInCart}</span>
-              <button onClick={() => addToCart(item)} className="p-2 hover:text-amber-500">
+              <button
+                onClick={() => addToCart(item)}
+                disabled={addDisabled}
+                className="p-2 hover:text-amber-500 disabled:text-zinc-600 disabled:hover:text-zinc-600 disabled:cursor-not-allowed"
+              >
                 <Plus size={14} />
               </button>
             </div>
           ) : (
-            <button onClick={() => addToCart(item)} className="bg-white text-black hover:bg-amber-500 p-2 transition-colors">
-              <Plus size={16} />
+            <button
+              onClick={() => addToCart(item)}
+              disabled={addDisabled}
+              className="bg-white text-black hover:bg-amber-500 p-2 transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed disabled:hover:bg-zinc-800"
+            >
+              {disabledLabel ? <span className="px-1 text-[10px] font-black tracking-wider">{disabledLabel}</span> : <Plus size={16} />}
             </button>
           )}
         </div>
@@ -996,16 +1151,36 @@ const MenuList = ({
   return (
     <div className="py-16 px-4 bg-zinc-950 min-h-screen">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8 border border-zinc-800 bg-zinc-900 px-4 py-3 flex items-center justify-between gap-3">
-          <div>
+        <div className="mb-8 border border-zinc-800 bg-zinc-900 px-4 py-3 flex items-start justify-between gap-3">
+          <div className="w-full">
             <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Ordering For</p>
             <p className="text-white font-black text-sm md:text-base mt-1">
               {selectedLocation ? selectedLocation.area : 'Choose location on first add'}
             </p>
+            <div className="mt-4">
+              <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
+                Pickup Time (Up To 24h Ahead)
+              </label>
+              <input
+                type="datetime-local"
+                value={pickupAtValue}
+                min={pickupMinValue}
+                max={pickupMaxValue}
+                onChange={(event) => onPickupTimeChange(event.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
+              />
+              <p className="text-zinc-500 text-xs mt-2">Breakfast availability uses Eastern Time (5a - 11a).</p>
+              {pickupTimeError && <p className="text-red-400 text-xs mt-2">{pickupTimeError}</p>}
+              {activeCategory === 'breakfast' && !isBreakfastAvailableForPickup && (
+                <p className="text-amber-500 text-xs mt-2 font-bold uppercase tracking-wider">
+                  Ordering is not available for breakfast at the selected pickup time (5a - 11a Eastern Time).
+                </p>
+              )}
+            </div>
           </div>
           <button
             onClick={() => onNavigate('locations')}
-            className="text-amber-500 hover:text-amber-400 text-xs md:text-sm font-black uppercase tracking-widest shrink-0"
+            className="text-amber-500 hover:text-amber-400 text-xs md:text-sm font-black uppercase tracking-widest shrink-0 pt-1"
           >
             Set Location
           </button>
@@ -1807,13 +1982,38 @@ const DogHub = () => {
   const [pendingCartItem, setPendingCartItem] = useState(null);
   const [isResolvingClosestLocation, setIsResolvingClosestLocation] = useState(false);
   const [locationPickerError, setLocationPickerError] = useState('');
+  const [pickupAt, setPickupAt] = useState(() => normalizeToMinute(new Date()));
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
 
   const selectedLocation = locations.find((location) => location.id === selectedLocationId) || null;
+  const currentTime = normalizeToMinute(new Date(currentTimeMs));
+  const normalizedPickupAt = normalizeToMinute(pickupAt);
+  const latestPickupTime = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
+  const pickupAtValue = formatDateTimeLocal(normalizedPickupAt);
+  const pickupMinValue = formatDateTimeLocal(currentTime);
+  const pickupMaxValue = formatDateTimeLocal(latestPickupTime);
+  const pickupOutOfRangeError =
+    normalizedPickupAt < currentTime
+      ? 'Pickup time cannot be in the past.'
+      : normalizedPickupAt > latestPickupTime
+        ? 'Pickup time must be within 24 hours.'
+        : '';
+  const locationClosedAtPickupError =
+    selectedLocation && !isLocationOpenAt(selectedLocation, normalizedPickupAt)
+      ? `${selectedLocation.area} is closed at the selected pickup time.`
+      : '';
+  const pickupTimeError = pickupOutOfRangeError || locationClosedAtPickupError;
+  const isBreakfastAvailableForPickup = isBreakfastAvailableAt(normalizedPickupAt);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setCurrentTimeMs(Date.now()), 60000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   const navigate = (tab, subTab = null) => {
@@ -1833,17 +2033,36 @@ const DogHub = () => {
     setLocationPickerError('');
   };
 
+  const handlePickupTimeChange = (value) => {
+    const parsedTime = new Date(value);
+    if (Number.isNaN(parsedTime.getTime())) return;
+    setPickupAt(normalizeToMinute(parsedTime));
+  };
+
   const handleLocationSelected = (locationId, options = {}) => {
     const { navigateToMenu = false } = options;
+    const chosenLocation = locations.find((location) => location.id === locationId);
+    const chosenLocationIsOpen = chosenLocation ? isLocationOpenAt(chosenLocation, normalizedPickupAt) : false;
+    const canApplyPendingItem = pendingCartItem ? chosenLocationIsOpen && !pickupOutOfRangeError : true;
 
     setSelectedLocationId(locationId);
     setIsLocationPickerOpen(false);
     setLocationPickerError('');
 
     setPendingCartItem((pendingItem) => {
-      if (pendingItem) addItemToCart(pendingItem);
+      if (pendingItem && canApplyPendingItem) addItemToCart(pendingItem);
       return null;
     });
+
+    if (pendingCartItem && !canApplyPendingItem) {
+      setIsLocationPickerOpen(true);
+      if (pickupOutOfRangeError) {
+        setLocationPickerError(pickupOutOfRangeError);
+      } else if (chosenLocation) {
+        setLocationPickerError(`${chosenLocation.area} is closed at the selected pickup time.`);
+      }
+      return;
+    }
 
     if (navigateToMenu) navigate('menu', 'dogs');
   };
@@ -1878,6 +2097,20 @@ const DogHub = () => {
   };
 
   const addToCart = (item) => {
+    if (breakfastItemIds.has(item.id) && !isBreakfastAvailableForPickup) return;
+
+    if (pickupOutOfRangeError) {
+      setLocationPickerError(pickupOutOfRangeError);
+      setIsLocationPickerOpen(true);
+      return;
+    }
+
+    if (selectedLocation && !isLocationOpenAt(selectedLocation, normalizedPickupAt)) {
+      setLocationPickerError(`${selectedLocation.area} is closed at the selected pickup time.`);
+      setIsLocationPickerOpen(true);
+      return;
+    }
+
     if (selectedLocationId) {
       addItemToCart(item);
       return;
@@ -1917,6 +2150,12 @@ const DogHub = () => {
             activeCategory={menuSubTab}
             setActiveCategory={setMenuSubTab}
             selectedLocation={selectedLocation}
+            pickupAtValue={pickupAtValue}
+            pickupMinValue={pickupMinValue}
+            pickupMaxValue={pickupMaxValue}
+            onPickupTimeChange={handlePickupTimeChange}
+            pickupTimeError={pickupTimeError}
+            isBreakfastAvailableForPickup={isBreakfastAvailableForPickup}
           />
         );
       case 'locations':
@@ -1943,6 +2182,11 @@ const DogHub = () => {
             onRemove={removeFromCart}
             onNavigate={navigate}
             selectedLocation={selectedLocation}
+            pickupAtValue={pickupAtValue}
+            pickupMinValue={pickupMinValue}
+            pickupMaxValue={pickupMaxValue}
+            onPickupTimeChange={handlePickupTimeChange}
+            pickupTimeError={pickupTimeError}
           />
         );
       default:
