@@ -195,32 +195,44 @@ const breakfastBevs = [
 
 const locations = [
   {
+    id: 'causeway',
     area: 'THE HUB ON CAUSEWAY',
     address: '80 Causeway St, Boston, MA 02114',
     hours: 'Daily: 5am - Midnight',
     status: 'OPEN NOW',
     image: hubHallImage,
+    latitude: 42.3662,
+    longitude: -71.0621,
   },
   {
+    id: 'south-station',
     area: 'SOUTH STATION',
     address: '2 South Station, Boston, MA 02110',
     hours: 'Daily: 5am - Midnight',
     status: 'OPEN NOW',
     image: southStationImage,
+    latitude: 42.352271,
+    longitude: -71.055242,
   },
   {
+    id: 'back-bay',
     area: 'BACK BAY STATION',
     address: '145 Dartmouth Street, Boston, MA 02116',
     hours: 'Daily: 5am - Midnight',
     status: 'OPEN NOW',
     image: backBayStationImage,
+    latitude: 42.34735,
+    longitude: -71.075727,
   },
   {
+    id: 'faneuil-hall',
     area: 'FANEUIL HALL MARKETPLACE',
     address: '4 S Market St, Boston, MA 02109',
     hours: 'Mon - Sat: 10a - 9p | Sunday: 11a - 7p',
     status: 'OPEN NOW',
     image: faneuilHallMarketplaceImage,
+    latitude: 42.36012,
+    longitude: -71.05677,
   },
 ];
 
@@ -241,6 +253,31 @@ const getDirectionsLink = (address) => {
 
   return `https://www.openstreetmap.org/search?query=${encodedAddress}`;
 };
+
+const toRadians = (degrees) => (degrees * Math.PI) / 180;
+
+const calculateDistanceMiles = (a, b) => {
+  const earthRadiusMiles = 3958.8;
+  const dLat = toRadians(b.latitude - a.latitude);
+  const dLon = toRadians(b.longitude - a.longitude);
+  const lat1 = toRadians(a.latitude);
+  const lat2 = toRadians(b.latitude);
+
+  const haversine =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+
+  return 2 * earthRadiusMiles * Math.asin(Math.sqrt(haversine));
+};
+
+const getClosestLocation = (latitude, longitude) =>
+  locations.reduce((closest, location) => {
+    const distance = calculateDistanceMiles({ latitude, longitude }, location);
+    if (!closest || distance < closest.distance) {
+      return { location, distance };
+    }
+    return closest;
+  }, null)?.location ?? null;
 
 const merch = [
   {
@@ -746,7 +783,7 @@ const LynnerCustomizer = ({ onNavigate, addToCart }) => {
   );
 };
 
-const CartView = ({ cart, onRemove, onNavigate }) => {
+const CartView = ({ cart, onRemove, onNavigate, selectedLocation }) => {
   const cartTotal = cart.reduce((acc, item) => acc + item.price, 0);
 
   return (
@@ -762,6 +799,21 @@ const CartView = ({ cart, onRemove, onNavigate }) => {
         <h2 className="text-4xl md:text-5xl font-black tracking-tighter mb-8 uppercase text-white border-b-8 border-amber-500 pb-2 inline-block">
           Your Order
         </h2>
+
+        <div className="mb-8 border border-zinc-800 bg-zinc-900 p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Pickup Location</p>
+            <p className="text-white font-black text-sm md:text-base mt-1">
+              {selectedLocation ? selectedLocation.area : 'Not selected yet'}
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('locations')}
+            className="text-amber-500 hover:text-amber-400 text-xs md:text-sm font-black uppercase tracking-widest"
+          >
+            Change
+          </button>
+        </div>
 
         {cart.length === 0 ? (
           <div className="text-center py-20 bg-zinc-900 border border-zinc-800">
@@ -840,6 +892,7 @@ const MenuList = ({
   removeOneFromCart,
   activeCategory,
   setActiveCategory,
+  selectedLocation,
 }) => {
   const ItemCard = ({ item }) => {
     const qtyInCart = cart.filter((c) => c.id === item.id && !c.isCustom).length;
@@ -943,6 +996,21 @@ const MenuList = ({
   return (
     <div className="py-16 px-4 bg-zinc-950 min-h-screen">
       <div className="max-w-4xl mx-auto">
+        <div className="mb-8 border border-zinc-800 bg-zinc-900 px-4 py-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Ordering For</p>
+            <p className="text-white font-black text-sm md:text-base mt-1">
+              {selectedLocation ? selectedLocation.area : 'Choose location on first add'}
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('locations')}
+            className="text-amber-500 hover:text-amber-400 text-xs md:text-sm font-black uppercase tracking-widest shrink-0"
+          >
+            Set Location
+          </button>
+        </div>
+
         <div className="flex flex-wrap items-center gap-4 md:gap-6 mb-10 border-b border-zinc-800 pb-4">
           <button
             onClick={() => setActiveCategory('breakfast')}
@@ -1076,61 +1144,86 @@ const MenuList = ({
   );
 };
 
-const LocationsList = () => (
+const LocationsList = ({
+  selectedLocationId,
+  onOrderHere,
+  onUseClosestLocation,
+  isResolvingClosestLocation,
+}) => (
   <div className="pt-32 pb-16 px-4 bg-zinc-950">
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-4xl font-black text-white tracking-tighter mb-8 uppercase border-l-8 border-amber-500 pl-4">
-        Find Us
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {locations.map((loc, idx) => (
-          (() => {
-            const directionsLink = getDirectionsLink(loc.address);
-            const isWebLink = directionsLink.startsWith('http');
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <h2 className="text-4xl font-black text-white tracking-tighter uppercase border-l-8 border-amber-500 pl-4">
+          Find Us
+        </h2>
+        <button
+          onClick={onUseClosestLocation}
+          className="bg-zinc-900 border border-zinc-700 text-white font-black uppercase tracking-wide px-5 py-3 hover:border-amber-500 hover:text-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isResolvingClosestLocation}
+        >
+          {isResolvingClosestLocation ? 'Finding Closest...' : 'Use My Location (Closest)'}
+        </button>
+      </div>
 
-            return (
-              <div
-                key={idx}
-                className="bg-zinc-900 border border-zinc-800 flex flex-col justify-between overflow-hidden group"
-              >
-                <div className="h-64 bg-zinc-800 relative overflow-hidden">
-                  <img
-                    src={loc.image}
-                    alt={loc.area}
-                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 to-transparent opacity-90" />
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <h3 className="text-3xl font-black text-white mb-1 shadow-black drop-shadow-lg">{loc.area}</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                      <span className="text-green-500 font-bold text-sm tracking-widest">{loc.status}</span>
-                    </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {locations.map((loc) => {
+          const directionsLink = getDirectionsLink(loc.address);
+          const isWebLink = directionsLink.startsWith('http');
+          const isSelected = selectedLocationId === loc.id;
+
+          return (
+            <div
+              key={loc.id}
+              className={`bg-zinc-900 border ${
+                isSelected ? 'border-amber-500' : 'border-zinc-800'
+              } flex flex-col justify-between overflow-hidden group`}
+            >
+              <div className="h-64 bg-zinc-800 relative overflow-hidden">
+                <img
+                  src={loc.image}
+                  alt={loc.area}
+                  className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 to-transparent opacity-90" />
+                <div className="absolute bottom-4 left-4 right-4">
+                  <h3 className="text-3xl font-black text-white mb-1 shadow-black drop-shadow-lg">{loc.area}</h3>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-green-500 font-bold text-sm tracking-widest">{loc.status}</span>
+                    {isSelected && <span className="text-amber-500 text-xs font-black tracking-widest">ORDERING HERE</span>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8">
+                <div className="mb-6">
+                  <p className="text-xl text-zinc-300 font-medium mb-4">{loc.address}</p>
+                  <div className="flex items-center text-zinc-500 font-mono text-sm border-t border-zinc-800 pt-4">
+                    <Clock size={16} className="mr-2" />
+                    {loc.hours}
                   </div>
                 </div>
 
-                <div className="p-8">
-                  <div className="mb-6">
-                    <p className="text-xl text-zinc-300 font-medium mb-4">{loc.address}</p>
-                    <div className="flex items-center text-zinc-500 font-mono text-sm border-t border-zinc-800 pt-4">
-                      <Clock size={16} className="mr-2" />
-                      {loc.hours}
-                    </div>
-                  </div>
-
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <a
                     href={directionsLink}
                     target={isWebLink ? '_blank' : undefined}
                     rel={isWebLink ? 'noopener noreferrer' : undefined}
-                    className="w-full bg-white text-black font-black uppercase tracking-wide py-4 flex items-center justify-center gap-2 hover:bg-amber-500 transition-colors"
+                    className="bg-white text-black font-black uppercase tracking-wide py-4 flex items-center justify-center gap-2 hover:bg-amber-500 transition-colors"
                   >
-                    <MapPin size={18} /> Get Directions <ExternalLink size={14} className="ml-1 opacity-50" />
+                    <MapPin size={18} /> Directions <ExternalLink size={14} className="ml-1 opacity-50" />
                   </a>
+                  <button
+                    onClick={() => onOrderHere(loc.id)}
+                    className="bg-amber-500 text-black font-black uppercase tracking-wide py-4 hover:bg-amber-400 transition-colors"
+                  >
+                    Order Here
+                  </button>
                 </div>
               </div>
-            );
-          })()
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   </div>
@@ -1596,6 +1689,64 @@ const InvestorsSection = () => {
   );
 };
 
+const LocationPickerModal = ({
+  isOpen,
+  locationsList,
+  pendingItemName,
+  onClose,
+  onChooseLocation,
+  onUseClosestLocation,
+  isResolvingClosestLocation,
+  errorMessage,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm px-4 py-8 overflow-y-auto">
+      <div className="max-w-xl mx-auto bg-zinc-950 border border-zinc-800 p-6 md:p-8 text-white relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+          aria-label="Close location picker"
+        >
+          <X size={20} />
+        </button>
+
+        <h3 className="text-3xl font-black uppercase tracking-tighter mb-2">Choose Pickup Location</h3>
+        <p className="text-zinc-400 mb-6">
+          {pendingItemName
+            ? `Select a location to add "${pendingItemName}" to your bag.`
+            : 'Select a location to start your order.'}
+        </p>
+
+        <button
+          onClick={onUseClosestLocation}
+          disabled={isResolvingClosestLocation}
+          className="w-full mb-4 bg-zinc-900 border border-zinc-700 text-white font-black uppercase tracking-wide py-3 hover:border-amber-500 hover:text-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isResolvingClosestLocation ? 'Finding Closest...' : 'Use My Location (Closest)'}
+        </button>
+
+        {errorMessage && <p className="text-red-400 text-sm mb-4">{errorMessage}</p>}
+
+        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+          {locationsList.map((location) => (
+            <button
+              key={location.id}
+              onClick={() => onChooseLocation(location.id)}
+              className="w-full text-left border border-zinc-800 bg-zinc-900 p-4 hover:border-amber-500 transition-colors"
+            >
+              <div className="font-black uppercase tracking-wide text-white mb-1">{location.area}</div>
+              <div className="text-zinc-400 text-sm mb-2">{location.address}</div>
+              <div className="text-zinc-500 text-xs uppercase tracking-wider">{location.hours}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Footer = () => (
   <footer className="bg-zinc-950 border-t border-zinc-900">
     <div className="bg-black text-zinc-500 py-12 px-4">
@@ -1651,6 +1802,13 @@ const DogHub = () => {
   const [scrolled, setScrolled] = useState(false);
   const [cart, setCart] = useState([]);
   const [menuSubTab, setMenuSubTab] = useState('breakfast');
+  const [selectedLocationId, setSelectedLocationId] = useState(null);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [pendingCartItem, setPendingCartItem] = useState(null);
+  const [isResolvingClosestLocation, setIsResolvingClosestLocation] = useState(false);
+  const [locationPickerError, setLocationPickerError] = useState('');
+
+  const selectedLocation = locations.find((location) => location.id === selectedLocationId) || null;
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -1665,8 +1823,69 @@ const DogHub = () => {
     window.scrollTo(0, 0);
   };
 
+  const addItemToCart = (item) => {
+    setCart((prevCart) => [...prevCart, { ...item, cartId: Date.now() + Math.random() }]);
+  };
+
+  const closeLocationPicker = () => {
+    setIsLocationPickerOpen(false);
+    setPendingCartItem(null);
+    setLocationPickerError('');
+  };
+
+  const handleLocationSelected = (locationId, options = {}) => {
+    const { navigateToMenu = false } = options;
+
+    setSelectedLocationId(locationId);
+    setIsLocationPickerOpen(false);
+    setLocationPickerError('');
+
+    setPendingCartItem((pendingItem) => {
+      if (pendingItem) addItemToCart(pendingItem);
+      return null;
+    });
+
+    if (navigateToMenu) navigate('menu', 'dogs');
+  };
+
+  const handleUseClosestLocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationPickerError('Location services are unavailable. Please choose a location manually.');
+      return;
+    }
+
+    setIsResolvingClosestLocation(true);
+    setLocationPickerError('');
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const nearestLocation = getClosestLocation(coords.latitude, coords.longitude);
+        setIsResolvingClosestLocation(false);
+
+        if (!nearestLocation) {
+          setLocationPickerError('No nearby location found. Please choose a location manually.');
+          return;
+        }
+
+        handleLocationSelected(nearestLocation.id);
+      },
+      () => {
+        setIsResolvingClosestLocation(false);
+        setLocationPickerError('Could not detect your location. Please choose a location manually.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  };
+
   const addToCart = (item) => {
-    setCart([...cart, { ...item, cartId: Date.now() + Math.random() }]);
+    if (selectedLocationId) {
+      addItemToCart(item);
+      return;
+    }
+
+    setPendingCartItem(item);
+    setLocationPickerError('');
+    setIsLocationPickerOpen(true);
   };
 
   const removeOneFromCart = (itemId) => {
@@ -1697,10 +1916,18 @@ const DogHub = () => {
             removeOneFromCart={removeOneFromCart}
             activeCategory={menuSubTab}
             setActiveCategory={setMenuSubTab}
+            selectedLocation={selectedLocation}
           />
         );
       case 'locations':
-        return <LocationsList />;
+        return (
+          <LocationsList
+            selectedLocationId={selectedLocationId}
+            onOrderHere={(locationId) => handleLocationSelected(locationId, { navigateToMenu: true })}
+            onUseClosestLocation={handleUseClosestLocation}
+            isResolvingClosestLocation={isResolvingClosestLocation}
+          />
+        );
       case 'about':
         return <AboutSection />;
       case 'merch':
@@ -1710,7 +1937,14 @@ const DogHub = () => {
       case 'customizer':
         return <LynnerCustomizer onNavigate={navigate} addToCart={addToCart} />;
       case 'cart':
-        return <CartView cart={cart} onRemove={removeFromCart} onNavigate={navigate} />;
+        return (
+          <CartView
+            cart={cart}
+            onRemove={removeFromCart}
+            onNavigate={navigate}
+            selectedLocation={selectedLocation}
+          />
+        );
       default:
         return (
           <>
@@ -1736,6 +1970,16 @@ const DogHub = () => {
         cartCount={cart.length}
       />
       {renderContent()}
+      <LocationPickerModal
+        isOpen={isLocationPickerOpen}
+        locationsList={locations}
+        pendingItemName={pendingCartItem?.name}
+        onClose={closeLocationPicker}
+        onChooseLocation={(locationId) => handleLocationSelected(locationId)}
+        onUseClosestLocation={handleUseClosestLocation}
+        isResolvingClosestLocation={isResolvingClosestLocation}
+        errorMessage={locationPickerError}
+      />
       <Footer />
       <StickyCart cartTotal={cartTotal} cartCount={cart.length} onNavigate={navigate} activeTab={activeTab} />
     </div>
