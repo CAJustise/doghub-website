@@ -198,8 +198,6 @@ const locations = [
     address: '80 Causeway St, Boston, MA 02114',
     hours: 'Daily: 5am - Midnight',
     status: 'OPEN NOW',
-    mapLink:
-      'https://www.google.com/maps/search/?api=1&query=The+Hub+on+Causeway+80+Causeway+St+Boston+MA+02114',
     image: hubHallImage,
   },
   {
@@ -207,7 +205,6 @@ const locations = [
     address: '2 South Station, Boston, MA 02110',
     hours: 'Daily: 5am - Midnight',
     status: 'OPEN NOW',
-    mapLink: 'https://www.google.com/maps/search/?api=1&query=2+South+Station+Boston+MA+02110',
     image: southStationImage,
   },
   {
@@ -215,10 +212,27 @@ const locations = [
     address: '145 Dartmouth Street, Boston, MA 02116',
     hours: 'Daily: 5am - Midnight',
     status: 'OPEN NOW',
-    mapLink: 'https://www.google.com/maps/search/?api=1&query=145+Dartmouth+Street+Boston+MA+02116',
     image: backBayStationImage,
   },
 ];
+
+const getDirectionsLink = (address) => {
+  const encodedAddress = encodeURIComponent(address);
+
+  if (typeof navigator !== 'undefined') {
+    const ua = navigator.userAgent || '';
+
+    if (/android/i.test(ua)) {
+      return `geo:0,0?q=${encodedAddress}`;
+    }
+
+    if (/iPhone|iPad|iPod|Macintosh/i.test(ua)) {
+      return `maps://?q=${encodedAddress}`;
+    }
+  }
+
+  return `https://www.openstreetmap.org/search?query=${encodedAddress}`;
+};
 
 const merch = [
   {
@@ -1062,46 +1076,52 @@ const LocationsList = () => (
       </h2>
       <div className="grid grid-cols-1 gap-6">
         {locations.map((loc, idx) => (
-          <div
-            key={idx}
-            className="bg-zinc-900 border border-zinc-800 flex flex-col justify-between overflow-hidden group"
-          >
-            <div className="h-64 bg-zinc-800 relative overflow-hidden">
-              <img
-                src={loc.image}
-                alt={loc.area}
-                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 to-transparent opacity-90" />
-              <div className="absolute bottom-4 left-4 right-4">
-                <h3 className="text-3xl font-black text-white mb-1 shadow-black drop-shadow-lg">{loc.area}</h3>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-green-500 font-bold text-sm tracking-widest">{loc.status}</span>
-                </div>
-              </div>
-            </div>
+          (() => {
+            const directionsLink = getDirectionsLink(loc.address);
+            const isWebLink = directionsLink.startsWith('http');
 
-            <div className="p-8">
-              <div className="mb-6">
-                <p className="text-xl text-zinc-300 font-medium mb-4">{loc.address}</p>
-                <div className="flex items-center text-zinc-500 font-mono text-sm border-t border-zinc-800 pt-4">
-                  <Clock size={16} className="mr-2" />
-                  {loc.hours}
-                </div>
-              </div>
-
-              <a
-                href={loc.mapLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-white text-black font-black uppercase tracking-wide py-4 flex items-center justify-center gap-2 hover:bg-amber-500 transition-colors"
+            return (
+              <div
+                key={idx}
+                className="bg-zinc-900 border border-zinc-800 flex flex-col justify-between overflow-hidden group"
               >
-                <MapPin size={18} /> Get Directions{' '}
-                <ExternalLink size={14} className="ml-1 opacity-50" />
-              </a>
-            </div>
-          </div>
+                <div className="h-64 bg-zinc-800 relative overflow-hidden">
+                  <img
+                    src={loc.image}
+                    alt={loc.area}
+                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 to-transparent opacity-90" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <h3 className="text-3xl font-black text-white mb-1 shadow-black drop-shadow-lg">{loc.area}</h3>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      <span className="text-green-500 font-bold text-sm tracking-widest">{loc.status}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-8">
+                  <div className="mb-6">
+                    <p className="text-xl text-zinc-300 font-medium mb-4">{loc.address}</p>
+                    <div className="flex items-center text-zinc-500 font-mono text-sm border-t border-zinc-800 pt-4">
+                      <Clock size={16} className="mr-2" />
+                      {loc.hours}
+                    </div>
+                  </div>
+
+                  <a
+                    href={directionsLink}
+                    target={isWebLink ? '_blank' : undefined}
+                    rel={isWebLink ? 'noopener noreferrer' : undefined}
+                    className="w-full bg-white text-black font-black uppercase tracking-wide py-4 flex items-center justify-center gap-2 hover:bg-amber-500 transition-colors"
+                  >
+                    <MapPin size={18} /> Get Directions <ExternalLink size={14} className="ml-1 opacity-50" />
+                  </a>
+                </div>
+              </div>
+            );
+          })()
         ))}
       </div>
     </div>
