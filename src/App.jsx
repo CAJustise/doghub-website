@@ -1251,19 +1251,299 @@ const MerchSection = ({ addToCart }) => {
   );
 };
 
-const InvestorsSection = () => (
-  <div className="py-16 px-4 bg-zinc-950 min-h-screen text-white">
-    <div className="max-w-4xl mx-auto">
-      <h2 className="text-4xl font-black tracking-tighter mb-6 uppercase border-l-8 border-amber-500 pl-4">
-        Investors
-      </h2>
-      <p className="text-zinc-300 text-lg mb-4">Investor relations page coming soon.</p>
-      <p className="text-zinc-500">
-        We are currently preparing our investor materials and outreach details.
-      </p>
+const InvestorsSection = () => {
+  const handleSubmit = (event) => {
+    event.preventDefault();
+  };
+
+  return (
+    <div className="py-16 px-4 bg-zinc-950 text-white">
+      <div className="max-w-5xl mx-auto">
+        <h2 className="text-4xl md:text-5xl font-black tracking-tighter mb-2 uppercase border-l-8 border-amber-500 pl-4">
+          DOGHUB
+        </h2>
+        <p className="text-amber-500 text-xl font-black tracking-tight mb-8">Steamed. Charred. Perfected.</p>
+
+        <div className="bg-zinc-900 border border-zinc-800 p-6 md:p-8 mb-10 space-y-4">
+          <p className="text-zinc-200 text-lg leading-relaxed">
+            DogHub is a fast-casual hot dog concept built for high-traffic urban environments.
+            Designed around commuter speed, mobile ordering, and operational simplicity, DogHub
+            delivers classic regional hot dogs executed correctly and served fast.
+          </p>
+          <p className="text-zinc-300 text-lg font-bold leading-relaxed">
+            This is not novelty food.
+            <br />
+            It is the hot dog done right.
+          </p>
+        </div>
+
+        <div className="space-y-8">
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">THE OPPORTUNITY</h3>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              Transit hubs and arena districts generate massive foot traffic but surprisingly limited
+              fast, savory food options outside of national chains.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-4">DogHub is built specifically for these environments.</p>
+            <p className="text-zinc-300 leading-relaxed mb-3">The concept targets three daily demand windows:</p>
+            <ul className="list-disc list-inside text-zinc-200 space-y-1 mb-4">
+              <li>Morning commuters</li>
+              <li>Lunch traffic</li>
+              <li>Late-night event crowds</li>
+            </ul>
+            <p className="text-zinc-300 leading-relaxed">
+              The menu is designed for speed, consistency, and strong margins while maintaining the
+              quality expectations of modern fast-casual dining.
+            </p>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">THE PRODUCT</h3>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              DogHub focuses on classic regional hot dogs executed correctly.
+            </p>
+            <ul className="list-disc list-inside text-zinc-200 space-y-1 mb-4">
+              <li>Chicago dogs with natural casing snap</li>
+              <li>New York builds with mustard and sauerkraut</li>
+              <li>Polish sausages and specialty dogs</li>
+              <li>Hand-battered corn dogs and high-margin sides</li>
+            </ul>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              Breakfast expands the concept with soft-coddled egg cups and fast breakfast sandwiches
+              designed for commuter ordering.
+            </p>
+            <p className="text-zinc-300 leading-relaxed">
+              The menu is intentionally tight. Most items share core ingredients, allowing fast
+              assembly and consistent quality even during rush periods.
+            </p>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">THE MODEL</h3>
+            <p className="text-zinc-300 leading-relaxed mb-3">DogHub is designed for throughput.</p>
+            <ul className="list-disc list-inside text-zinc-200 space-y-1 mb-4">
+              <li>Small footprint locations (800-1,200 sq ft)</li>
+              <li>Mobile ordering and kiosk-first service</li>
+              <li>Minimal menu complexity</li>
+              <li>Assembly-line production</li>
+            </ul>
+            <p className="text-zinc-300 leading-relaxed">
+              Orders can be placed from mobile devices while commuting and picked up immediately on
+              arrival, reducing ordering congestion and maximizing peak-hour capacity. This model
+              prioritizes speed, efficiency, and strong unit economics.
+            </p>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">
+              UNIT ECONOMICS (TARGET)
+            </h3>
+            <ul className="list-disc list-inside text-zinc-200 space-y-1">
+              <li>Average check: $13-$16</li>
+              <li>Peak capacity: 120-180 transactions per hour</li>
+              <li>Primary traffic: commuter rush, lunch, post-event late night</li>
+            </ul>
+            <p className="text-zinc-300 leading-relaxed mt-4">
+              Hot dogs offer strong food cost control and limited ingredient complexity, creating a
+              model that scales efficiently in dense urban markets.
+            </p>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">
+              LOCATION STRATEGY
+            </h3>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              DogHub is designed for pedestrian-heavy environments.
+            </p>
+            <ul className="list-disc list-inside text-zinc-200 space-y-1 mb-4">
+              <li>Transit stations</li>
+              <li>Arena districts</li>
+              <li>Dense downtown corridors</li>
+            </ul>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              Initial launch targets Boston, with a focus on locations such as Hub Hall near North
+              Station.
+            </p>
+            <p className="text-zinc-300 leading-relaxed">
+              The brand is intentionally positioned as a small regional concept with disciplined
+              growth. Target footprint: 2-4 total locations.
+            </p>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">THE TEAM</h3>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              DogHub is led by operators with hands-on experience launching and opening multiple
+              fast-casual restaurant locations across California markets, including high-volume urban
+              environments.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              The concept is built by operators who understand speed, kitchen workflow, and
+              real-world restaurant economics.
+            </p>
+            <p className="text-zinc-100 font-bold uppercase tracking-wide">Execution, not theory.</p>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">INVESTMENT</h3>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              DogHub is currently seeking partners for its first flagship location.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-6">
+              Interested investors can request the full business plan, financial model, and expansion
+              roadmap.
+            </p>
+            <a
+              href="#request-investor-deck"
+              className="inline-flex items-center bg-white text-black font-black uppercase tracking-wide px-6 py-3 hover:bg-amber-500 transition-colors"
+            >
+              Request Investor Deck
+            </a>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">WHY NOW</h3>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              Fast-casual dining has shifted toward speed, mobile ordering, and limited menus that
+              execute consistently under heavy traffic. At the same time, dense urban corridors and
+              transit hubs continue to see strong daily foot traffic from commuters, office workers,
+              and event crowds.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              Hot dogs remain one of the highest-margin and most operationally simple categories in
+              food service, yet few modern concepts have built the category around mobile ordering,
+              rush-hour throughput, and disciplined menu design.
+            </p>
+            <p className="text-zinc-300 leading-relaxed">
+              DogHub combines a classic American product with a service model designed for today's
+              consumer behavior: order on mobile, pick up quickly, and move on. The result is a
+              concept built specifically for the environments where time matters most.
+            </p>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">
+              UNIT ECONOMICS (ILLUSTRATIVE)
+            </h3>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              Typical DogHub locations are designed to operate in small, efficient footprints with a
+              limited menu and high production speed.
+            </p>
+            <ul className="list-disc list-inside text-zinc-200 space-y-1 mb-4">
+              <li>Target footprint: 800-1,200 sq ft</li>
+              <li>Average check: $13-$16</li>
+              <li>Peak throughput: 120-180 transactions per hour</li>
+              <li>Menu design: shared ingredients and rapid assembly</li>
+            </ul>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              Daily demand is driven by three primary windows:
+            </p>
+            <ul className="list-disc list-inside text-zinc-200 space-y-1 mb-4">
+              <li>Morning commuter traffic</li>
+              <li>Lunch rush</li>
+              <li>Post-event and late-night crowds</li>
+            </ul>
+            <p className="text-zinc-300 leading-relaxed">
+              The limited ingredient set and simple assembly process allow DogHub to maintain strong
+              food cost control while serving high transaction volume during peak periods.
+            </p>
+          </section>
+
+          <section className="bg-zinc-900 border border-zinc-800 p-6 md:p-8">
+            <h3 className="text-xl font-black tracking-widest text-amber-500 uppercase mb-4">
+              INVESTMENT OPPORTUNITY
+            </h3>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              DogHub is currently raising capital for its flagship Boston location and initial brand
+              launch.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              The first location will establish the operating model, brand presence, and proof of
+              concept in a dense, high-traffic environment.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-4">
+              The long-term strategy is disciplined regional growth, targeting two to four total
+              locations in high-foot-traffic urban corridors.
+            </p>
+            <p className="text-zinc-300 leading-relaxed">
+              Investors will receive access to the full DogHub business plan, financial projections,
+              and development roadmap.
+            </p>
+          </section>
+        </div>
+
+        <section
+          id="request-investor-deck"
+          className="mt-10 bg-black border border-zinc-800 p-6 md:p-8 scroll-mt-24"
+        >
+          <p className="text-zinc-400 mb-4">
+            To request the full investment package, complete the form below.
+          </p>
+          <h3 className="text-2xl font-black tracking-tight uppercase mb-6">REQUEST THE INVESTOR DECK</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="investor-name" className="block text-zinc-300 text-sm font-bold uppercase tracking-wider mb-2">
+                Name
+              </label>
+              <input
+                id="investor-name"
+                name="name"
+                type="text"
+                required
+                className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="investor-email" className="block text-zinc-300 text-sm font-bold uppercase tracking-wider mb-2">
+                Email
+              </label>
+              <input
+                id="investor-email"
+                name="email"
+                type="email"
+                required
+                className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="investor-phone" className="block text-zinc-300 text-sm font-bold uppercase tracking-wider mb-2">
+                Phone (optional)
+              </label>
+              <input
+                id="investor-phone"
+                name="phone"
+                type="tel"
+                className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="investment-range" className="block text-zinc-300 text-sm font-bold uppercase tracking-wider mb-2">
+                Investment Interest Range
+              </label>
+              <input
+                id="investment-range"
+                name="investmentRange"
+                type="text"
+                required
+                className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full md:w-auto bg-amber-500 text-black font-black uppercase tracking-wide px-8 py-3 hover:bg-amber-400 transition-colors"
+            >
+              Submit
+            </button>
+            <p className="text-zinc-400 text-sm pt-1">
+              Qualified investors will receive the full DogHub investment deck and financial model.
+            </p>
+          </form>
+        </section>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const Footer = () => (
   <footer className="bg-zinc-950 border-t border-zinc-900">
