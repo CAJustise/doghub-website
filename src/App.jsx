@@ -879,6 +879,8 @@ const LynnerCustomizer = ({ onNavigate, addToCart }) => {
 const CartView = ({
   cart,
   onRemove,
+  onIncrementItem,
+  onDecrementItem,
   onNavigate,
   selectedLocation,
   pickupAtValue,
@@ -887,7 +889,10 @@ const CartView = ({
   onPickupTimeChange,
   pickupTimeError,
 }) => {
-  const cartTotal = cart.reduce((acc, item) => acc + item.price, 0);
+  const cartTotal = cart.reduce(
+    (acc, item) => acc + item.price * (item.isCustom ? 1 : item.qty || 1),
+    0
+  );
 
   return (
     <div className="py-24 px-4 bg-zinc-950 min-h-screen text-white">
@@ -957,20 +962,50 @@ const CartView = ({
                   className="bg-zinc-900 p-6 border border-zinc-800 flex justify-between items-start group hover:border-zinc-700 transition-colors"
                 >
                   <div className="flex-1 pr-4">
-                    <h3 className="font-black text-xl uppercase tracking-tight mb-1">
+                    <h3 className="font-black text-xl uppercase tracking-tight mb-1 flex items-center gap-2">
                       {item.name || item.item}
+                      {!item.isCustom && (
+                        <span className="text-xs font-bold tracking-widest text-zinc-500">
+                          x{item.qty || 1}
+                        </span>
+                      )}
                     </h3>
                     {item.desc && <p className="text-zinc-400 text-sm font-medium">{item.desc}</p>}
                   </div>
-                  <div className="flex flex-col items-end gap-3">
-                    <span className="font-black text-lg">${item.price.toFixed(2)}</span>
-                    <button
-                      onClick={() => onRemove(item.cartId)}
-                      className="text-zinc-600 hover:text-red-500 transition-colors p-1"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
+                  {item.isCustom ? (
+                    <div className="flex flex-col items-end gap-3">
+                      <span className="font-black text-lg">${item.price.toFixed(2)}</span>
+                      <button
+                        onClick={() => onRemove(item.cartId)}
+                        className="text-zinc-600 hover:text-red-500 transition-colors p-1"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-end gap-3">
+                      <span className="font-black text-lg">
+                        ${(item.price * (item.qty || 1)).toFixed(2)}
+                      </span>
+                      <div className="flex items-center bg-zinc-800 rounded text-white">
+                        <button
+                          onClick={() => onDecrementItem(item.id)}
+                          className="p-2 hover:text-amber-500"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="font-black text-amber-500 text-sm w-5 text-center">
+                          {item.qty || 1}
+                        </span>
+                        <button
+                          onClick={() => onIncrementItem(item)}
+                          className="p-2 hover:text-amber-500"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1029,8 +1064,11 @@ const MenuList = ({
   };
 
   const ItemCard = ({ item }) => {
-    const qtyInCart = cart.filter((c) => c.id === item.id && !c.isCustom).length;
-    const customCount = item.isCustom ? cart.filter((c) => c.id === item.id).length : 0;
+    const qtyInCart = cart.reduce(
+      (acc, c) => (c.id === item.id && !c.isCustom ? acc + (c.qty || 1) : acc),
+      0
+    );
+    const customCount = item.isCustom ? cart.filter((c) => c.id === item.id && c.isCustom).length : 0;
     const addDisabled = isItemAddDisabled(item);
     const disabledLabel = getDisabledLabel(item);
 
@@ -1110,7 +1148,10 @@ const MenuList = ({
   };
 
   const CompactRow = ({ item }) => {
-    const qtyInCart = cart.filter((c) => c.id === item.id).length;
+    const qtyInCart = cart.reduce(
+      (acc, c) => (c.id === item.id && !c.isCustom ? acc + (c.qty || 1) : acc),
+      0
+    );
     const addDisabled = isItemAddDisabled(item);
     const disabledLabel = getDisabledLabel(item);
 
@@ -2028,11 +2069,25 @@ const DogHub = () => {
   const addItemToCart = (item) => {
     const normalizedName = item.name || item.item || 'ITEM';
     const normalizedDesc = item.desc || item.description || '';
+    const normalizedItem = { ...item, name: normalizedName, desc: normalizedDesc };
 
-    setCart((prevCart) => [
-      ...prevCart,
-      { ...item, name: normalizedName, desc: normalizedDesc, cartId: Date.now() + Math.random() },
-    ]);
+    setCart((prevCart) => {
+      if (normalizedItem.isCustom) {
+        return [...prevCart, { ...normalizedItem, cartId: Date.now() + Math.random() }];
+      }
+
+      const existingIndex = prevCart.findIndex(
+        (cartItem) => cartItem.id === normalizedItem.id && !cartItem.isCustom
+      );
+
+      if (existingIndex === -1) {
+        return [...prevCart, { ...normalizedItem, qty: 1, cartId: Date.now() + Math.random() }];
+      }
+
+      return prevCart.map((cartItem, index) =>
+        index === existingIndex ? { ...cartItem, qty: (cartItem.qty || 1) + 1 } : cartItem
+      );
+    });
   };
 
   const closeLocationPicker = () => {
@@ -2130,21 +2185,33 @@ const DogHub = () => {
   };
 
   const removeOneFromCart = (itemId) => {
-    const indexToRemove = [...cart].reverse().findIndex((item) => item.id === itemId);
-    if (indexToRemove !== -1) {
-      const realIndex = cart.length - 1 - indexToRemove;
-      const newCart = [...cart];
-      newCart.splice(realIndex, 1);
-      setCart(newCart);
-    }
+    setCart((prevCart) => {
+      const itemIndex = prevCart.findIndex((item) => item.id === itemId && !item.isCustom);
+      if (itemIndex === -1) return prevCart;
+
+      const item = prevCart[itemIndex];
+      const currentQty = item.qty || 1;
+
+      if (currentQty <= 1) {
+        return prevCart.filter((_, index) => index !== itemIndex);
+      }
+
+      return prevCart.map((cartItem, index) =>
+        index === itemIndex ? { ...cartItem, qty: currentQty - 1 } : cartItem
+      );
+    });
   };
 
   const removeFromCart = (cartId) => {
-    setCart(cart.filter((item) => item.cartId !== cartId));
+    setCart((prevCart) => prevCart.filter((item) => item.cartId !== cartId));
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + item.price, 0);
-  const showStickyCart = cart.length > 0 && activeTab !== 'cart';
+  const cartTotal = cart.reduce(
+    (acc, item) => acc + item.price * (item.isCustom ? 1 : item.qty || 1),
+    0
+  );
+  const cartCount = cart.reduce((acc, item) => acc + (item.isCustom ? 1 : item.qty || 1), 0);
+  const showStickyCart = cartCount > 0 && activeTab !== 'cart';
 
   const renderContent = () => {
     switch (activeTab) {
@@ -2188,6 +2255,8 @@ const DogHub = () => {
           <CartView
             cart={cart}
             onRemove={removeFromCart}
+            onIncrementItem={addToCart}
+            onDecrementItem={removeOneFromCart}
             onNavigate={navigate}
             selectedLocation={selectedLocation}
             pickupAtValue={pickupAtValue}
@@ -2219,7 +2288,7 @@ const DogHub = () => {
         isMenuOpen={isMenuOpen}
         setIsMenuOpen={setIsMenuOpen}
         scrolled={scrolled}
-        cartCount={cart.length}
+        cartCount={cartCount}
       />
       {renderContent()}
       <LocationPickerModal
@@ -2233,7 +2302,7 @@ const DogHub = () => {
         errorMessage={locationPickerError}
       />
       <Footer />
-      <StickyCart cartTotal={cartTotal} cartCount={cart.length} onNavigate={navigate} activeTab={activeTab} />
+      <StickyCart cartTotal={cartTotal} cartCount={cartCount} onNavigate={navigate} activeTab={activeTab} />
     </div>
   );
 };
