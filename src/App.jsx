@@ -1228,7 +1228,7 @@ const CartView = ({
   onNavigate,
   selectedLocation,
   isOrderAheadEnabled,
-  onToggleOrderAhead,
+  onSetOrderAheadEnabled,
   pickupDateValue,
   pickupTimeValue,
   pickupDateOptions,
@@ -1265,18 +1265,25 @@ const CartView = ({
             <div className="mt-4">
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={onToggleOrderAhead}
+                  onClick={() => onSetOrderAheadEnabled(false)}
+                  className={`px-3 py-1 text-xs font-black uppercase tracking-widest border transition-colors ${
+                    !isOrderAheadEnabled
+                      ? 'bg-amber-500 text-black border-amber-500 hover:bg-amber-400'
+                      : 'bg-zinc-950 text-zinc-300 border-zinc-700 hover:border-amber-500 hover:text-white'
+                  }`}
+                >
+                  Order Now
+                </button>
+                <button
+                  onClick={() => onSetOrderAheadEnabled(true)}
                   className={`px-3 py-1 text-xs font-black uppercase tracking-widest border transition-colors ${
                     isOrderAheadEnabled
                       ? 'bg-amber-500 text-black border-amber-500 hover:bg-amber-400'
                       : 'bg-zinc-950 text-zinc-300 border-zinc-700 hover:border-amber-500 hover:text-white'
                   }`}
                 >
-                  {isOrderAheadEnabled ? 'Order Ahead On' : 'Order Ahead'}
+                  Order Ahead
                 </button>
-                <p className="text-zinc-500 text-xs">
-                  {isOrderAheadEnabled ? 'Choose a pickup time up to 24 hours ahead.' : 'Pickup now selected.'}
-                </p>
               </div>
               {isOrderAheadEnabled && (
                 <div className="mt-3">
@@ -1577,7 +1584,7 @@ const MenuList = ({
   setActiveCategory,
   selectedLocation,
   isOrderAheadEnabled,
-  onToggleOrderAhead,
+  onSetOrderAheadEnabled,
   pickupDateValue,
   pickupTimeValue,
   pickupDateOptions,
@@ -1759,18 +1766,25 @@ const MenuList = ({
             <div className="mt-4">
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={onToggleOrderAhead}
+                  onClick={() => onSetOrderAheadEnabled(false)}
+                  className={`px-3 py-1 text-xs font-black uppercase tracking-widest border transition-colors ${
+                    !isOrderAheadEnabled
+                      ? 'bg-amber-500 text-black border-amber-500 hover:bg-amber-400'
+                      : 'bg-zinc-950 text-zinc-300 border-zinc-700 hover:border-amber-500 hover:text-white'
+                  }`}
+                >
+                  Order Now
+                </button>
+                <button
+                  onClick={() => onSetOrderAheadEnabled(true)}
                   className={`px-3 py-1 text-xs font-black uppercase tracking-widest border transition-colors ${
                     isOrderAheadEnabled
                       ? 'bg-amber-500 text-black border-amber-500 hover:bg-amber-400'
                       : 'bg-zinc-950 text-zinc-300 border-zinc-700 hover:border-amber-500 hover:text-white'
                   }`}
                 >
-                  {isOrderAheadEnabled ? 'Order Ahead On' : 'Order Ahead'}
+                  Order Ahead
                 </button>
-                <p className="text-zinc-500 text-xs">
-                  {isOrderAheadEnabled ? 'Choose a pickup time up to 24 hours ahead.' : 'Pickup now selected.'}
-                </p>
               </div>
               {isOrderAheadEnabled && (
                 <div className="mt-3">
@@ -1820,11 +1834,10 @@ const MenuList = ({
                   </div>
                 </div>
               )}
-              <p className="text-zinc-500 text-xs mt-2">Breakfast availability uses Eastern Time (5a - 11a).</p>
               {pickupTimeError && <p className="text-red-400 text-xs mt-2">{pickupTimeError}</p>}
               {activeCategory === 'breakfast' && !isBreakfastAvailableForPickup && (
-                <p className="text-amber-500 text-xs mt-2 font-bold uppercase tracking-wider">
-                  Ordering is not available for breakfast at the selected pickup time (5a - 11a Eastern Time).
+                <p className="text-amber-500 text-xs mt-2 font-bold tracking-wider">
+                  Breakfast Not Available
                 </p>
               )}
             </div>
@@ -4285,26 +4298,27 @@ const DogHub = () => {
     setPickupAt(normalizeToMinute(nextPickupAt));
   };
 
-  const handleToggleOrderAhead = () => {
-    setIsOrderAheadEnabled((prevEnabled) => {
-      const nextEnabled = !prevEnabled;
-      if (nextEnabled) {
-        const suggestedPickupAt = normalizeToMinute(
-          roundUpToQuarterHour(new Date(currentTime.getTime() + 15 * 60 * 1000))
-        );
-        setPickupAt((prevPickupAt) => {
-          const normalizedPrevPickupAt = normalizeToMinute(prevPickupAt);
-          const prevDateValue = formatDateInput(normalizedPrevPickupAt);
-          const prevTimeValue = formatTimeInput(normalizedPrevPickupAt);
-          const prevOptions = getAvailableQuarterHoursForDate(prevDateValue);
-          const isPrevValid = prevOptions.includes(prevTimeValue);
-          if (!isPrevValid) {
-            return suggestedPickupAt;
-          }
-          return normalizedPrevPickupAt;
-        });
+  const handleSetOrderAheadEnabled = (enabled) => {
+    if (!enabled) {
+      setIsOrderAheadEnabled(false);
+      return;
+    }
+
+    setIsOrderAheadEnabled(true);
+    const suggestedPickupAt = normalizeToMinute(
+      roundUpToQuarterHour(new Date(currentTime.getTime() + 15 * 60 * 1000))
+    );
+
+    setPickupAt((prevPickupAt) => {
+      const normalizedPrevPickupAt = normalizeToMinute(prevPickupAt);
+      const prevDateValue = formatDateInput(normalizedPrevPickupAt);
+      const prevTimeValue = formatTimeInput(normalizedPrevPickupAt);
+      const prevOptions = getAvailableQuarterHoursForDate(prevDateValue);
+      const isPrevValid = prevOptions.includes(prevTimeValue);
+      if (!isPrevValid) {
+        return suggestedPickupAt;
       }
-      return nextEnabled;
+      return normalizedPrevPickupAt;
     });
   };
 
@@ -4453,7 +4467,7 @@ const DogHub = () => {
             setActiveCategory={setMenuSubTab}
             selectedLocation={selectedLocation}
             isOrderAheadEnabled={isOrderAheadEnabled}
-            onToggleOrderAhead={handleToggleOrderAhead}
+            onSetOrderAheadEnabled={handleSetOrderAheadEnabled}
             pickupDateValue={resolvedPickupDateValue}
             pickupTimeValue={pickupTimeValue}
             pickupDateOptions={pickupDateOptions}
@@ -4508,7 +4522,7 @@ const DogHub = () => {
             onNavigate={navigate}
             selectedLocation={selectedLocation}
             isOrderAheadEnabled={isOrderAheadEnabled}
-            onToggleOrderAhead={handleToggleOrderAhead}
+            onSetOrderAheadEnabled={handleSetOrderAheadEnabled}
             pickupDateValue={resolvedPickupDateValue}
             pickupTimeValue={pickupTimeValue}
             pickupDateOptions={pickupDateOptions}
