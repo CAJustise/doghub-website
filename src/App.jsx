@@ -218,7 +218,7 @@ const locations = [
   {
     area: 'FANEUIL HALL MARKETPLACE',
     address: '4 S Market St, Boston, MA 02109',
-    hours: '10am - 9pm',
+    hours: 'Mon - Sat: 10a - 9p | Sunday: 11a - 7p',
     status: 'OPEN NOW',
     image: faneuilHallMarketplaceImage,
   },
