@@ -550,6 +550,25 @@ const getReadableTextColor = (backgroundColor) => {
   return brightness > 150 ? '#111111' : '#f9fafb';
 };
 
+const getCustomItemKey = (item) => {
+  if (item?.customKey) return item.customKey;
+
+  const normalizedDesc = item?.desc || item?.description || '';
+  const selectedIngredientKey = asArray(item?.selectedIngredientIds)
+    .map((ingredientId) => String(ingredientId))
+    .sort()
+    .join('|');
+
+  return [
+    item?.id ?? 'custom',
+    item?.baseItemId ?? 'base',
+    item?.name || 'item',
+    normalizedDesc,
+    Number(item?.price || 0).toFixed(2),
+    selectedIngredientKey,
+  ].join('::');
+};
+
 const normalizePromoScrollSeconds = (value, fallback = 78) => {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return fallback;
@@ -1000,14 +1019,16 @@ const LynnerCustomizer = ({ onNavigate, addToCart }) => {
   }, [selectedDog, selectedToppings]);
 
   const handleAddToOrder = () => {
+    const toppingNames = selectedToppings.map((t) => t.name);
+    const sortedToppingNames = [...toppingNames].sort((a, b) => a.localeCompare(b));
+
     addToCart({
       id: 99,
       name: 'The Lynner',
-      desc: `${selectedDog.name}, ${selectedBun.name}, ${selectedToppings
-        .map((t) => t.name)
-        .join(', ')}`,
+      desc: [selectedDog.name, selectedBun.name, ...toppingNames].join(', '),
       price: totalPrice,
       isCustom: true,
+      customKey: `lynner::${selectedDog.id}::${selectedBun.id}::${sortedToppingNames.join('|')}`,
     });
     onNavigate('menu', 'dogs');
   };
@@ -1237,10 +1258,7 @@ const CartView = ({
   onPickupTimeSlotChange,
   pickupTimeError,
 }) => {
-  const cartTotal = cart.reduce(
-    (acc, item) => acc + item.price * (item.isCustom ? 1 : item.qty || 1),
-    0
-  );
+  const cartTotal = cart.reduce((acc, item) => acc + item.price * (item.qty || 1), 0);
 
   return (
     <div className="py-24 px-4 bg-zinc-950 min-h-screen text-white">
@@ -1371,48 +1389,38 @@ const CartView = ({
                   <div className="flex-1 pr-4">
                     <h3 className="font-black text-xl uppercase tracking-tight mb-1 flex items-center gap-2">
                       {item.name || item.item}
-                      {!item.isCustom && (
-                        <span className="text-xs font-bold tracking-widest text-zinc-500">
-                          x{item.qty || 1}
-                        </span>
-                      )}
+                      <span className="text-xs font-bold tracking-widest text-zinc-500">
+                        x{item.qty || 1}
+                      </span>
                     </h3>
                     {item.desc && <p className="text-zinc-400 text-sm font-medium">{item.desc}</p>}
                   </div>
-                  {item.isCustom ? (
-                    <div className="flex flex-col items-end gap-3">
-                      <span className="font-black text-lg">${item.price.toFixed(2)}</span>
+                  <div className="flex flex-col items-end gap-3">
+                    <span className="font-black text-lg">${(item.price * (item.qty || 1)).toFixed(2)}</span>
+                    <div className="flex items-center bg-zinc-800 rounded text-white">
                       <button
-                        onClick={() => onRemove(item.cartId)}
-                        className="text-zinc-600 hover:text-red-500 transition-colors p-1"
+                        onClick={() => onDecrementItem(item.cartId)}
+                        className="p-2 hover:text-amber-500"
                       >
-                        <Trash2 size={18} />
+                        <Minus size={14} />
+                      </button>
+                      <span className="font-black text-amber-500 text-sm w-5 text-center">
+                        {item.qty || 1}
+                      </span>
+                      <button
+                        onClick={() => onIncrementItem(item)}
+                        className="p-2 hover:text-amber-500"
+                      >
+                        <Plus size={14} />
                       </button>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-end gap-3">
-                      <span className="font-black text-lg">
-                        ${(item.price * (item.qty || 1)).toFixed(2)}
-                      </span>
-                      <div className="flex items-center bg-zinc-800 rounded text-white">
-                        <button
-                          onClick={() => onDecrementItem(item.id)}
-                          className="p-2 hover:text-amber-500"
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <span className="font-black text-amber-500 text-sm w-5 text-center">
-                          {item.qty || 1}
-                        </span>
-                        <button
-                          onClick={() => onIncrementItem(item)}
-                          className="p-2 hover:text-amber-500"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    <button
+                      onClick={() => onRemove(item.cartId)}
+                      className="text-zinc-600 hover:text-red-500 transition-colors p-1"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1494,6 +1502,7 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
 
   const handleAddCustomizedItem = () => {
     const customizationDesc = buildCustomizationDesc();
+    const sortedSelectedIngredientIds = [...selectedIngredientIds].sort();
     onAddToCart({
       id: item.id,
       name: `${item.name} (Custom)`,
@@ -1501,7 +1510,8 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
       price: totalPrice,
       isCustom: true,
       baseItemId: item.id,
-      selectedIngredientIds,
+      selectedIngredientIds: sortedSelectedIngredientIds,
+      customKey: `custom::${item.id}::${sortedSelectedIngredientIds.join('|')}`,
     });
     onClose();
   };
@@ -1618,7 +1628,9 @@ const MenuList = ({
       (acc, c) => (c.id === item.id && !c.isCustom ? acc + (c.qty || 1) : acc),
       0
     );
-    const customCount = item.isCustom ? cart.filter((c) => c.id === item.id && c.isCustom).length : 0;
+    const customCount = item.isCustom
+      ? cart.reduce((acc, c) => (c.id === item.id && c.isCustom ? acc + (c.qty || 1) : acc), 0)
+      : 0;
     const addDisabled = isItemAddDisabled(item);
     const disabledLabel = getDisabledLabel(item);
 
@@ -4251,11 +4263,22 @@ const DogHub = () => {
   const addItemToCart = (item) => {
     const normalizedName = item.name || item.item || 'ITEM';
     const normalizedDesc = item.desc || item.description || '';
-    const normalizedItem = { ...item, name: normalizedName, desc: normalizedDesc };
+    const normalizedItem = { ...item, name: normalizedName, desc: normalizedDesc, qty: 1 };
 
     setCart((prevCart) => {
       if (normalizedItem.isCustom) {
-        return [...prevCart, { ...normalizedItem, cartId: Date.now() + Math.random() }];
+        const customKey = getCustomItemKey(normalizedItem);
+        const existingCustomIndex = prevCart.findIndex(
+          (cartItem) => cartItem.isCustom && getCustomItemKey(cartItem) === customKey
+        );
+
+        if (existingCustomIndex === -1) {
+          return [...prevCart, { ...normalizedItem, customKey, cartId: Date.now() + Math.random() }];
+        }
+
+        return prevCart.map((cartItem, index) =>
+          index === existingCustomIndex ? { ...cartItem, qty: (cartItem.qty || 1) + 1 } : cartItem
+        );
       }
 
       const existingIndex = prevCart.findIndex(
@@ -4263,7 +4286,7 @@ const DogHub = () => {
       );
 
       if (existingIndex === -1) {
-        return [...prevCart, { ...normalizedItem, qty: 1, cartId: Date.now() + Math.random() }];
+        return [...prevCart, { ...normalizedItem, cartId: Date.now() + Math.random() }];
       }
 
       return prevCart.map((cartItem, index) =>
@@ -4442,15 +4465,30 @@ const DogHub = () => {
     });
   };
 
+  const decrementCartItemByCartId = (cartId) => {
+    setCart((prevCart) => {
+      const itemIndex = prevCart.findIndex((item) => item.cartId === cartId);
+      if (itemIndex === -1) return prevCart;
+
+      const item = prevCart[itemIndex];
+      const currentQty = item.qty || 1;
+
+      if (currentQty <= 1) {
+        return prevCart.filter((_, index) => index !== itemIndex);
+      }
+
+      return prevCart.map((cartItem, index) =>
+        index === itemIndex ? { ...cartItem, qty: currentQty - 1 } : cartItem
+      );
+    });
+  };
+
   const removeFromCart = (cartId) => {
     setCart((prevCart) => prevCart.filter((item) => item.cartId !== cartId));
   };
 
-  const cartTotal = cart.reduce(
-    (acc, item) => acc + item.price * (item.isCustom ? 1 : item.qty || 1),
-    0
-  );
-  const cartCount = cart.reduce((acc, item) => acc + (item.isCustom ? 1 : item.qty || 1), 0);
+  const cartTotal = cart.reduce((acc, item) => acc + item.price * (item.qty || 1), 0);
+  const cartCount = cart.reduce((acc, item) => acc + (item.qty || 1), 0);
   const showStickyCart = cartCount > 0 && activeTab !== 'cart';
 
   const renderContent = () => {
@@ -4518,7 +4556,7 @@ const DogHub = () => {
             cart={cart}
             onRemove={removeFromCart}
             onIncrementItem={addToCart}
-            onDecrementItem={removeOneFromCart}
+            onDecrementItem={decrementCartItemByCartId}
             onNavigate={navigate}
             selectedLocation={selectedLocation}
             isOrderAheadEnabled={isOrderAheadEnabled}
