@@ -521,6 +521,13 @@ const customizationData = {
 const CRM_STORAGE_KEY = 'doghub-crm-data-v1';
 const ADMIN_SESSION_KEY = 'doghub-admin-session-v1';
 const ADMIN_PASSWORD = 'doghub-admin';
+const DEFAULT_QUICKIE_CONFIG = {
+  basePrice: 7,
+  sideUpcharges: {
+    [String(503)]: 1,
+    [String(504)]: 2,
+  },
+};
 
 const toSlugId = (value) =>
   String(value || '')
@@ -592,7 +599,7 @@ const normalizeQuickieSelection = (quickie) => {
   const drinkId = quickie.drinkId ?? quickie.drink?.id ?? null;
   const sideName = quickie.sideName ?? quickie.side?.name ?? '';
   const drinkName = quickie.drinkName ?? quickie.drink?.name ?? '';
-  const price = Number(quickie.price ?? 4);
+  const price = Number(quickie.price ?? DEFAULT_QUICKIE_CONFIG.basePrice);
   const key = quickie.key || `quickie::${sideId ?? sideName}::${drinkId ?? drinkName}`;
 
   return {
@@ -605,14 +612,29 @@ const normalizeQuickieSelection = (quickie) => {
   };
 };
 
-const createQuickieSelection = (sideItem, drinkItem) =>
+const getQuickieBasePrice = (quickieConfig) => Number(quickieConfig?.basePrice ?? 7);
+
+const getQuickieSideUpcharge = (quickieConfig, sideId) =>
+  Number(quickieConfig?.sideUpcharges?.[String(sideId)] || 0);
+
+const getQuickieTotalPrice = (quickieConfig, sideId) =>
+  getQuickieBasePrice(quickieConfig) + getQuickieSideUpcharge(quickieConfig, sideId);
+
+const formatMoney = (value) => {
+  const normalized = Number(value || 0);
+  return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(2);
+};
+
+const createQuickieSelection = (sideItem, drinkItem, quickieConfig) =>
   normalizeQuickieSelection({
     sideId: sideItem?.id,
     drinkId: drinkItem?.id,
     sideName: sideItem?.name,
     drinkName: drinkItem?.name,
-    price: 4,
-    key: `quickie::${sideItem?.id}::${drinkItem?.id}`,
+    price: getQuickieTotalPrice(quickieConfig, sideItem?.id),
+    key: `quickie::${sideItem?.id}::${drinkItem?.id}::${formatMoney(
+      getQuickieTotalPrice(quickieConfig, sideItem?.id)
+    )}`,
   });
 
 const getQuickieKey = (item) => normalizeQuickieSelection(item?.quickie)?.key || 'no-quickie';
@@ -761,6 +783,10 @@ const createDefaultCrmData = () => {
       holidayHours: [],
     })),
     merch: merch.map((item) => ({ ...item, active: true })),
+    quickie: {
+      basePrice: DEFAULT_QUICKIE_CONFIG.basePrice,
+      sideUpcharges: { ...DEFAULT_QUICKIE_CONFIG.sideUpcharges },
+    },
     promoBanner: {
       active: false,
       title: '',
@@ -808,6 +834,22 @@ const withMerchDefaults = (item) => ({
   item: item.item || item.name || 'MERCH ITEM',
 });
 
+const withQuickieDefaults = (quickieConfig, defaults) => {
+  const source = quickieConfig || {};
+  const basePrice = Number(source.basePrice ?? defaults.basePrice);
+  const sideUpcharges = Object.fromEntries(
+    Object.entries(source.sideUpcharges || defaults.sideUpcharges || {}).map(([sideId, value]) => [
+      String(sideId),
+      Number(value || 0),
+    ])
+  );
+
+  return {
+    basePrice: Number.isFinite(basePrice) ? basePrice : defaults.basePrice,
+    sideUpcharges,
+  };
+};
+
 const loadCrmData = () => {
   const defaults = createDefaultCrmData();
   if (typeof window === 'undefined') return defaults;
@@ -844,6 +886,7 @@ const loadCrmData = () => {
       ingredients: normalizedIngredients,
       locations: asArray(parsed?.locations, defaults.locations).map(withLocationDefaults),
       merch: asArray(parsed?.merch, defaults.merch).map(withMerchDefaults),
+      quickie: withQuickieDefaults(parsed?.quickie, defaults.quickie),
       promoBanner: {
         ...defaults.promoBanner,
         ...(parsed?.promoBanner || {}),
@@ -1333,6 +1376,7 @@ const CartView = ({
   onRemoveQuickie,
   quickieSideOptions,
   quickieDrinkOptions,
+  quickieConfig,
   onNavigate,
   selectedLocation,
   isOrderAheadEnabled,
@@ -1501,7 +1545,7 @@ const CartView = ({
                             onClick={() => setQuickieTargetCartId(item.cartId)}
                             className="mt-2 ml-3 text-amber-500 hover:text-amber-400 text-xs font-bold"
                           >
-                            ↳ Add Quickie +$4
+                            ↳ Add Quickie +${formatMoney(getQuickieBasePrice(quickieConfig))}
                           </button>
                         )
                       )}
@@ -1558,6 +1602,7 @@ const CartView = ({
         <QuickiePickerModal
           sides={quickieSideOptions}
           drinks={quickieDrinkOptions}
+          quickieConfig={quickieConfig}
           initialSideId={normalizeQuickieSelection(quickieTargetItem.quickie)?.sideId}
           initialDrinkId={normalizeQuickieSelection(quickieTargetItem.quickie)?.drinkId}
           allowRemove={Boolean(normalizeQuickieSelection(quickieTargetItem.quickie))}
@@ -1581,6 +1626,7 @@ const MenuItemCustomizerModal = ({
   ingredients,
   quickieSides,
   quickieDrinks,
+  quickieConfig,
   onClose,
   onAddToCart,
 }) => {
@@ -1673,7 +1719,7 @@ const MenuItemCustomizerModal = ({
     const customizedItem = buildCustomizedItem();
     onAddToCart({
       ...customizedItem,
-      quickie: createQuickieSelection(sideItem, drinkItem),
+      quickie: createQuickieSelection(sideItem, drinkItem, quickieConfig),
     });
     onClose();
   };
@@ -1771,7 +1817,7 @@ const MenuItemCustomizerModal = ({
               disabled={quickieSideOptions.length === 0 || quickieDrinkOptions.length === 0}
               className="w-full bg-amber-500 text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-400 transition-colors disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed"
             >
-              Make It A Quickie +$4
+              Make It A Quickie +${formatMoney(getQuickieBasePrice(quickieConfig))}
             </button>
           </div>
         </div>
@@ -1780,6 +1826,7 @@ const MenuItemCustomizerModal = ({
         <QuickiePickerModal
           sides={quickieSideOptions}
           drinks={quickieDrinkOptions}
+          quickieConfig={quickieConfig}
           onClose={() => setIsQuickiePickerOpen(false)}
           onConfirm={handleAddCustomizedQuickie}
         />
@@ -1791,6 +1838,7 @@ const MenuItemCustomizerModal = ({
 const QuickiePickerModal = ({
   sides,
   drinks,
+  quickieConfig,
   initialSideId = null,
   initialDrinkId = null,
   allowRemove = false,
@@ -1819,6 +1867,7 @@ const QuickiePickerModal = ({
 
   const selectedSide = sideOptions.find((option) => String(option.id) === String(selectedSideId)) || null;
   const selectedDrink = drinkOptions.find((option) => String(option.id) === String(selectedDrinkId)) || null;
+  const selectedQuickiePrice = selectedSide ? getQuickieTotalPrice(quickieConfig, selectedSide.id) : getQuickieBasePrice(quickieConfig);
   const canAddQuickie = Boolean(selectedSide && selectedDrink);
 
   const handleAddQuickie = () => {
@@ -1838,7 +1887,9 @@ const QuickiePickerModal = ({
         </button>
 
         <h3 className="text-3xl font-black tracking-tighter uppercase mb-2">Make It A Quickie</h3>
-        <p className="text-zinc-400 mb-6">Add any side + any drink for $4.</p>
+        <p className="text-zinc-400 mb-6">
+          Add any side + any drink. Base +${formatMoney(getQuickieBasePrice(quickieConfig))} and side upcharges apply.
+        </p>
 
         {sideOptions.length === 0 || drinkOptions.length === 0 ? (
           <p className="text-zinc-400">No quickie options are available right now.</p>
@@ -1856,6 +1907,9 @@ const QuickiePickerModal = ({
                 {sideOptions.map((option) => (
                   <option key={option.id} value={String(option.id)}>
                     {option.name}
+                    {getQuickieSideUpcharge(quickieConfig, option.id) > 0
+                      ? ` (+$${formatMoney(getQuickieSideUpcharge(quickieConfig, option.id))})`
+                      : ''}
                   </option>
                 ))}
               </select>
@@ -1894,7 +1948,7 @@ const QuickiePickerModal = ({
                 disabled={!canAddQuickie}
                 className="w-full bg-white text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-500 transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed"
               >
-                Update Quickie ($4)
+                Update Quickie (+${formatMoney(selectedQuickiePrice)})
               </button>
             </div>
           ) : (
@@ -1903,7 +1957,7 @@ const QuickiePickerModal = ({
               disabled={!canAddQuickie}
               className="w-full bg-white text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-500 transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed"
             >
-              Add Quickie ($4)
+              Add Quickie (+${formatMoney(selectedQuickiePrice)})
             </button>
           )}
         </div>
@@ -1939,6 +1993,7 @@ const MenuList = ({
   breakfastHandJobsItems,
   breakfastBevsItems,
   ingredientOptions,
+  quickieConfig,
 }) => {
   const [customizingItem, setCustomizingItem] = useState(null);
   const [isQuickiePickerOpen, setIsQuickiePickerOpen] = useState(false);
@@ -2011,7 +2066,9 @@ const MenuList = ({
                   disabled={addDisabled || !isQuickieAvailable}
                   className="w-full sm:w-44 bg-amber-500 text-black font-black rounded px-3 py-3 flex flex-col items-center justify-center text-center transition-colors hover:bg-amber-400 sm:min-h-[88px] disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed"
                 >
-                  <span className="text-sm uppercase tracking-wider">Make It A Quickie +$4</span>
+                  <span className="text-sm uppercase tracking-wider">
+                    Make It A Quickie +${formatMoney(getQuickieBasePrice(quickieConfig))}
+                  </span>
                   <span className="text-[10px] leading-tight mt-1 font-bold tracking-wide normal-case">
                     add a side & drink
                   </span>
@@ -2340,6 +2397,7 @@ const MenuList = ({
             ingredients={ingredientOptions}
             quickieSides={sidesMenuItems}
             quickieDrinks={quickieDrinkOptions}
+            quickieConfig={quickieConfig}
             onClose={() => setCustomizingItem(null)}
             onAddToCart={addCustomizedItemToCart}
           />
@@ -2348,6 +2406,7 @@ const MenuList = ({
           <QuickiePickerModal
             sides={sidesMenuItems}
             drinks={quickieDrinkOptions}
+            quickieConfig={quickieConfig}
             onClose={() => {
               setIsQuickiePickerOpen(false);
               setQuickieBaseItem(null);
@@ -2356,7 +2415,7 @@ const MenuList = ({
               if (!quickieBaseItem) return;
               addToCart({
                 ...quickieBaseItem,
-                quickie: createQuickieSelection(sideItem, drinkItem),
+                quickie: createQuickieSelection(sideItem, drinkItem, quickieConfig),
               });
               setIsQuickiePickerOpen(false);
               setQuickieBaseItem(null);
@@ -3398,7 +3457,7 @@ const AdminDashboard = ({ crmData, setCrmData, onLogout }) => {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-6">
-          {['menu', 'ingredients', 'locations', 'merch', 'promo'].map((tabKey) => (
+          {['menu', 'ingredients', 'locations', 'merch', 'quickie', 'promo'].map((tabKey) => (
             <button
               key={tabKey}
               onClick={() => setActiveTab(tabKey)}
@@ -4311,6 +4370,71 @@ const AdminDashboard = ({ crmData, setCrmData, onLogout }) => {
           </section>
         )}
 
+        {activeTab === 'quickie' && (
+          <section className="bg-zinc-900 border border-zinc-800 p-6 space-y-6">
+            <div>
+              <label className="block text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">
+                Base Quickie Price
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={Number(crmData.quickie?.basePrice ?? DEFAULT_QUICKIE_CONFIG.basePrice)}
+                onChange={(event) =>
+                  setCrmData((prevData) => ({
+                    ...prevData,
+                    quickie: withQuickieDefaults(
+                      {
+                        ...prevData.quickie,
+                        basePrice: Number(event.target.value || 0),
+                      },
+                      DEFAULT_QUICKIE_CONFIG
+                    ),
+                  }))
+                }
+                className="bg-zinc-950 border border-zinc-700 text-white px-3 py-2 w-full md:w-56"
+              />
+            </div>
+
+            <div className="border-t border-zinc-800 pt-4">
+              <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-3">
+                Side Upcharges (Added To Base)
+              </p>
+              <div className="space-y-2">
+                {asArray(crmData.menu?.sides).map((sideItem) => (
+                  <div
+                    key={sideItem.id}
+                    className="grid md:grid-cols-[1fr_150px] gap-3 items-center bg-zinc-950 border border-zinc-800 p-3"
+                  >
+                    <div className="text-white font-bold">{sideItem.name}</div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={Number(crmData.quickie?.sideUpcharges?.[String(sideItem.id)] || 0)}
+                      onChange={(event) =>
+                        setCrmData((prevData) => ({
+                          ...prevData,
+                          quickie: withQuickieDefaults(
+                            {
+                              ...prevData.quickie,
+                              sideUpcharges: {
+                                ...(prevData.quickie?.sideUpcharges || {}),
+                                [String(sideItem.id)]: Number(event.target.value || 0),
+                              },
+                            },
+                            DEFAULT_QUICKIE_CONFIG
+                          ),
+                        }))
+                      }
+                      className="bg-zinc-900 border border-zinc-700 text-white px-3 py-2"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {activeTab === 'promo' && (
           <section className="bg-zinc-900 border border-zinc-800 p-6 space-y-4">
             <label className="text-xs uppercase font-bold tracking-widest text-zinc-400 flex items-center gap-2">
@@ -4495,6 +4619,7 @@ const DogHub = () => {
     water: asArray(crmData?.menu?.drinks?.water).filter((item) => item.active !== false),
     beer: asArray(crmData?.menu?.drinks?.beer).filter((item) => item.active !== false),
   };
+  const quickieConfig = withQuickieDefaults(crmData?.quickie, DEFAULT_QUICKIE_CONFIG);
   const quickieDrinkOptions = [...menuDrinks.soda, ...menuDrinks.water];
   const menuBreakfastSluts = asArray(crmData?.menu?.breakfast?.sluts).filter((item) => item.active !== false);
   const menuBreakfastHandJobs = asArray(crmData?.menu?.breakfast?.handJobs).filter(
@@ -4855,7 +4980,7 @@ const DogHub = () => {
   };
 
   const attachQuickieToCartItem = (cartId, sideItem, drinkItem) => {
-    const quickie = createQuickieSelection(sideItem, drinkItem);
+    const quickie = createQuickieSelection(sideItem, drinkItem, quickieConfig);
     if (!quickie) return;
 
     setCart((prevCart) => {
@@ -4935,6 +5060,7 @@ const DogHub = () => {
             breakfastHandJobsItems={menuBreakfastHandJobs}
             breakfastBevsItems={menuBreakfastBevs}
             ingredientOptions={activeIngredients}
+            quickieConfig={quickieConfig}
           />
         );
       case 'locations':
@@ -4974,6 +5100,7 @@ const DogHub = () => {
             onRemoveQuickie={removeQuickieFromCartItem}
             quickieSideOptions={menuSides}
             quickieDrinkOptions={quickieDrinkOptions}
+            quickieConfig={quickieConfig}
             onNavigate={navigate}
             selectedLocation={selectedLocation}
             isOrderAheadEnabled={isOrderAheadEnabled}
