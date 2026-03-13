@@ -2247,19 +2247,32 @@ const DogHub = () => {
   const normalizedPickupAt = normalizeToMinute(pickupAt);
   const latestPickupTime = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
   const effectivePickupAt = isOrderAheadEnabled ? normalizedPickupAt : currentTime;
-  const pickupDateOptions = buildOrderAheadDateOptions(currentTime, latestPickupTime);
+  const basePickupDateOptions = buildOrderAheadDateOptions(currentTime, latestPickupTime);
   const pickupDateValue = formatDateInput(normalizedPickupAt);
-  const resolvedPickupDateValue = pickupDateOptions.some((dateOption) => dateOption.value === pickupDateValue)
-    ? pickupDateValue
-    : pickupDateOptions[0]?.value || pickupDateValue;
   const pickupTimeValue = formatTimeInput(normalizedPickupAt);
+
+  const isSlotOpenForOrdering = (candidateDateTime) => {
+    if (!candidateDateTime) return false;
+    if (candidateDateTime < currentTime || candidateDateTime > latestPickupTime) return false;
+
+    if (selectedLocation) {
+      return isLocationOpenAt(selectedLocation, candidateDateTime);
+    }
+
+    return locations.some((location) => isLocationOpenAt(location, candidateDateTime));
+  };
+
   const getAvailableQuarterHoursForDate = (dateValue) =>
     quarterHourTimeOptions.filter((timeValue) => {
       const candidateDateTime = combineDateAndTime(dateValue, timeValue);
-      return Boolean(
-        candidateDateTime && candidateDateTime >= currentTime && candidateDateTime <= latestPickupTime
-      );
+      return isSlotOpenForOrdering(candidateDateTime);
     });
+  const pickupDateOptions = basePickupDateOptions.filter(
+    (dateOption) => getAvailableQuarterHoursForDate(dateOption.value).length > 0
+  );
+  const resolvedPickupDateValue = pickupDateOptions.some((dateOption) => dateOption.value === pickupDateValue)
+    ? pickupDateValue
+    : pickupDateOptions[0]?.value || pickupDateValue;
   const pickupTimeOptions = getAvailableQuarterHoursForDate(resolvedPickupDateValue);
   const pickupOutOfRangeError =
     isOrderAheadEnabled
