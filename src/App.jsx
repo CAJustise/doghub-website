@@ -344,6 +344,48 @@ const formatDateTimeLocal = (date) => {
   return `${year}-${month}-${day}T${hour}:${minute}`;
 };
 
+const formatDateInput = (date) => formatDateTimeLocal(date).slice(0, 10);
+
+const formatTimeInput = (date) => formatDateTimeLocal(date).slice(11, 16);
+
+const formatTimeLabel = (timeValue) => {
+  const [hourText, minuteText] = timeValue.split(':');
+  const hour = Number(hourText);
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hour12}:${minuteText} ${suffix}`;
+};
+
+const combineDateAndTime = (dateValue, timeValue) => {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  const [hour, minute] = timeValue.split(':').map(Number);
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(month) ||
+    Number.isNaN(day) ||
+    Number.isNaN(hour) ||
+    Number.isNaN(minute)
+  ) {
+    return null;
+  }
+  return new Date(year, month - 1, day, hour, minute);
+};
+
+const roundUpToQuarterHour = (date) => {
+  const rounded = new Date(date);
+  rounded.setSeconds(0, 0);
+  const minutes = rounded.getMinutes();
+  const remainder = minutes % 15;
+  if (remainder !== 0) rounded.setMinutes(minutes + (15 - remainder));
+  return rounded;
+};
+
+const quarterHourTimeOptions = Array.from({ length: 96 }, (_, index) => {
+  const hour = String(Math.floor(index / 4)).padStart(2, '0');
+  const minute = String((index % 4) * 15).padStart(2, '0');
+  return `${hour}:${minute}`;
+});
+
 const normalizeToMinute = (date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes());
 
@@ -885,10 +927,13 @@ const CartView = ({
   selectedLocation,
   isOrderAheadEnabled,
   onToggleOrderAhead,
-  pickupAtValue,
-  pickupMinValue,
-  pickupMaxValue,
-  onPickupTimeChange,
+  pickupDateValue,
+  pickupTimeValue,
+  pickupMinDateValue,
+  pickupMaxDateValue,
+  pickupTimeOptions,
+  onPickupDateChange,
+  onPickupTimeSlotChange,
   pickupTimeError,
 }) => {
   const cartTotal = cart.reduce(
@@ -934,17 +979,42 @@ const CartView = ({
               </div>
               {isOrderAheadEnabled && (
                 <div className="mt-3">
-                  <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
-                    Pickup Time (Up To 24h Ahead)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={pickupAtValue}
-                    min={pickupMinValue}
-                    max={pickupMaxValue}
-                    onChange={(event) => onPickupTimeChange(event.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
-                  />
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
+                        Date
+                      </label>
+                      <input
+                        type="date"
+                        value={pickupDateValue}
+                        min={pickupMinDateValue}
+                        max={pickupMaxDateValue}
+                        onChange={(event) => onPickupDateChange(event.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
+                        Time
+                      </label>
+                      <select
+                        value={pickupTimeValue}
+                        onChange={(event) => onPickupTimeSlotChange(event.target.value)}
+                        disabled={pickupTimeOptions.length === 0}
+                        className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
+                      >
+                        {pickupTimeOptions.length === 0 ? (
+                          <option value={pickupTimeValue}>No times available</option>
+                        ) : (
+                          pickupTimeOptions.map((timeValue) => (
+                            <option key={timeValue} value={timeValue}>
+                              {formatTimeLabel(timeValue)}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               )}
               {pickupTimeError && <p className="text-red-400 text-xs mt-2">{pickupTimeError}</p>}
@@ -1070,10 +1140,13 @@ const MenuList = ({
   selectedLocation,
   isOrderAheadEnabled,
   onToggleOrderAhead,
-  pickupAtValue,
-  pickupMinValue,
-  pickupMaxValue,
-  onPickupTimeChange,
+  pickupDateValue,
+  pickupTimeValue,
+  pickupMinDateValue,
+  pickupMaxDateValue,
+  pickupTimeOptions,
+  onPickupDateChange,
+  onPickupTimeSlotChange,
   pickupTimeError,
   isBreakfastAvailableForPickup,
 }) => {
@@ -1241,17 +1314,42 @@ const MenuList = ({
               </div>
               {isOrderAheadEnabled && (
                 <div className="mt-3">
-                  <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
-                    Pickup Time (Up To 24h Ahead)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={pickupAtValue}
-                    min={pickupMinValue}
-                    max={pickupMaxValue}
-                    onChange={(event) => onPickupTimeChange(event.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
-                  />
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
+                        Date
+                      </label>
+                      <input
+                        type="date"
+                        value={pickupDateValue}
+                        min={pickupMinDateValue}
+                        max={pickupMaxDateValue}
+                        onChange={(event) => onPickupDateChange(event.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
+                        Time
+                      </label>
+                      <select
+                        value={pickupTimeValue}
+                        onChange={(event) => onPickupTimeSlotChange(event.target.value)}
+                        disabled={pickupTimeOptions.length === 0}
+                        className="w-full bg-zinc-950 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
+                      >
+                        {pickupTimeOptions.length === 0 ? (
+                          <option value={pickupTimeValue}>No times available</option>
+                        ) : (
+                          pickupTimeOptions.map((timeValue) => (
+                            <option key={timeValue} value={timeValue}>
+                              {formatTimeLabel(timeValue)}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               )}
               <p className="text-zinc-500 text-xs mt-2">Breakfast availability uses Eastern Time (5a - 11a).</p>
@@ -2076,9 +2174,18 @@ const DogHub = () => {
   const normalizedPickupAt = normalizeToMinute(pickupAt);
   const latestPickupTime = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
   const effectivePickupAt = isOrderAheadEnabled ? normalizedPickupAt : currentTime;
-  const pickupAtValue = formatDateTimeLocal(normalizedPickupAt);
-  const pickupMinValue = formatDateTimeLocal(currentTime);
-  const pickupMaxValue = formatDateTimeLocal(latestPickupTime);
+  const pickupDateValue = formatDateInput(normalizedPickupAt);
+  const pickupTimeValue = formatTimeInput(normalizedPickupAt);
+  const pickupMinDateValue = formatDateInput(currentTime);
+  const pickupMaxDateValue = formatDateInput(latestPickupTime);
+  const getAvailableQuarterHoursForDate = (dateValue) =>
+    quarterHourTimeOptions.filter((timeValue) => {
+      const candidateDateTime = combineDateAndTime(dateValue, timeValue);
+      return Boolean(
+        candidateDateTime && candidateDateTime >= currentTime && candidateDateTime <= latestPickupTime
+      );
+    });
+  const pickupTimeOptions = getAvailableQuarterHoursForDate(pickupDateValue);
   const pickupOutOfRangeError =
     isOrderAheadEnabled
       ? normalizedPickupAt < currentTime
@@ -2104,6 +2211,13 @@ const DogHub = () => {
     const intervalId = window.setInterval(() => setCurrentTimeMs(Date.now()), 60000);
     return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    if (!isOrderAheadEnabled || pickupTimeOptions.length === 0) return;
+    if (pickupTimeOptions.includes(pickupTimeValue)) return;
+    const fallbackDateTime = combineDateAndTime(pickupDateValue, pickupTimeOptions[0]);
+    if (fallbackDateTime) setPickupAt(normalizeToMinute(fallbackDateTime));
+  }, [isOrderAheadEnabled, pickupDateValue, pickupTimeOptions, pickupTimeValue]);
 
   const navigate = (tab, subTab = null) => {
     setActiveTab(tab);
@@ -2142,21 +2256,40 @@ const DogHub = () => {
     setLocationPickerError('');
   };
 
-  const handlePickupTimeChange = (value) => {
-    const parsedTime = new Date(value);
-    if (Number.isNaN(parsedTime.getTime())) return;
+  const handlePickupDateChange = (dateValue) => {
+    if (!dateValue) return;
     setIsOrderAheadEnabled(true);
-    setPickupAt(normalizeToMinute(parsedTime));
+    const availableTimes = getAvailableQuarterHoursForDate(dateValue);
+    const nextTimeValue = availableTimes.includes(pickupTimeValue)
+      ? pickupTimeValue
+      : availableTimes[0] || pickupTimeValue;
+    const nextPickupAt = combineDateAndTime(dateValue, nextTimeValue);
+    if (!nextPickupAt) return;
+    setPickupAt(normalizeToMinute(nextPickupAt));
+  };
+
+  const handlePickupTimeSlotChange = (timeValue) => {
+    if (!timeValue) return;
+    setIsOrderAheadEnabled(true);
+    const nextPickupAt = combineDateAndTime(pickupDateValue, timeValue);
+    if (!nextPickupAt) return;
+    setPickupAt(normalizeToMinute(nextPickupAt));
   };
 
   const handleToggleOrderAhead = () => {
     setIsOrderAheadEnabled((prevEnabled) => {
       const nextEnabled = !prevEnabled;
       if (nextEnabled) {
-        const suggestedPickupAt = normalizeToMinute(new Date(currentTime.getTime() + 15 * 60 * 1000));
+        const suggestedPickupAt = normalizeToMinute(
+          roundUpToQuarterHour(new Date(currentTime.getTime() + 15 * 60 * 1000))
+        );
         setPickupAt((prevPickupAt) => {
           const normalizedPrevPickupAt = normalizeToMinute(prevPickupAt);
-          if (normalizedPrevPickupAt < currentTime || normalizedPrevPickupAt > latestPickupTime) {
+          const prevDateValue = formatDateInput(normalizedPrevPickupAt);
+          const prevTimeValue = formatTimeInput(normalizedPrevPickupAt);
+          const prevOptions = getAvailableQuarterHoursForDate(prevDateValue);
+          const isPrevValid = prevOptions.includes(prevTimeValue);
+          if (!isPrevValid) {
             return suggestedPickupAt;
           }
           return normalizedPrevPickupAt;
@@ -2295,10 +2428,13 @@ const DogHub = () => {
             selectedLocation={selectedLocation}
             isOrderAheadEnabled={isOrderAheadEnabled}
             onToggleOrderAhead={handleToggleOrderAhead}
-            pickupAtValue={pickupAtValue}
-            pickupMinValue={pickupMinValue}
-            pickupMaxValue={pickupMaxValue}
-            onPickupTimeChange={handlePickupTimeChange}
+            pickupDateValue={pickupDateValue}
+            pickupTimeValue={pickupTimeValue}
+            pickupMinDateValue={pickupMinDateValue}
+            pickupMaxDateValue={pickupMaxDateValue}
+            pickupTimeOptions={pickupTimeOptions}
+            onPickupDateChange={handlePickupDateChange}
+            onPickupTimeSlotChange={handlePickupTimeSlotChange}
             pickupTimeError={pickupTimeError}
             isBreakfastAvailableForPickup={isBreakfastAvailableForPickup}
           />
@@ -2331,10 +2467,13 @@ const DogHub = () => {
             selectedLocation={selectedLocation}
             isOrderAheadEnabled={isOrderAheadEnabled}
             onToggleOrderAhead={handleToggleOrderAhead}
-            pickupAtValue={pickupAtValue}
-            pickupMinValue={pickupMinValue}
-            pickupMaxValue={pickupMaxValue}
-            onPickupTimeChange={handlePickupTimeChange}
+            pickupDateValue={pickupDateValue}
+            pickupTimeValue={pickupTimeValue}
+            pickupMinDateValue={pickupMinDateValue}
+            pickupMaxDateValue={pickupMaxDateValue}
+            pickupTimeOptions={pickupTimeOptions}
+            onPickupDateChange={handlePickupDateChange}
+            onPickupTimeSlotChange={handlePickupTimeSlotChange}
             pickupTimeError={pickupTimeError}
           />
         );
