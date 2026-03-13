@@ -564,9 +564,26 @@ const getCustomItemKey = (item) => {
     item?.baseItemId ?? 'base',
     item?.name || 'item',
     normalizedDesc,
+    item?.bun || '',
     Number(item?.price || 0).toFixed(2),
     selectedIngredientKey,
   ].join('::');
+};
+
+const inferBunIdFromText = (bunText) => {
+  const normalized = String(bunText || '').toLowerCase();
+  if (normalized.includes('steam') || normalized.includes('potato') || normalized.includes('poppy')) return 'potato';
+  return 'split';
+};
+
+const getDescriptionWithBun = (item, bunOverride = null) => {
+  const baseDesc = item?.desc || item?.description || '';
+  const bunText = bunOverride ?? item?.bun;
+  if (!bunText) return baseDesc;
+
+  if (!baseDesc) return `Bun: ${bunText}`;
+  if (/bun:/i.test(baseDesc)) return baseDesc;
+  return `${baseDesc} Bun: ${bunText}`;
 };
 
 const normalizePromoScrollSeconds = (value, fallback = 78) => {
@@ -1458,18 +1475,31 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
   const allowedIngredients = asArray(ingredients)
     .filter((ingredient) => item?.allowedIngredientIds?.includes(ingredient.id) && ingredient.active !== false)
     .sort((a, b) => a.name.localeCompare(b.name));
+  const bunOptions = asArray(customizationData.buns);
   const baseIngredientIds = asArray(item?.baseIngredientIds);
+  const defaultBunId = item?.defaultBunId || inferBunIdFromText(item?.bun);
   const [selectedIngredientIds, setSelectedIngredientIds] = useState(baseIngredientIds);
+  const [selectedBunId, setSelectedBunId] = useState(defaultBunId);
 
   useEffect(() => {
     setSelectedIngredientIds(baseIngredientIds);
   }, [item]);
+
+  useEffect(() => {
+    setSelectedBunId(defaultBunId);
+  }, [defaultBunId, item]);
 
   if (!item) return null;
 
   const ingredientById = Object.fromEntries(allowedIngredients.map((ingredient) => [ingredient.id, ingredient]));
   const baseIngredientSet = new Set(baseIngredientIds);
   const selectedSet = new Set(selectedIngredientIds);
+  const selectedBun =
+    bunOptions.find((bunOption) => bunOption.id === selectedBunId) ||
+    bunOptions.find((bunOption) => bunOption.id === defaultBunId) ||
+    bunOptions[0];
+  const selectedBunName = selectedBun?.name || item?.bun || '';
+  const bunChanged = selectedBunId !== defaultBunId;
 
   const addedIngredientIds = selectedIngredientIds.filter((id) => !baseIngredientSet.has(id));
   const removedIngredientIds = baseIngredientIds.filter((id) => !selectedSet.has(id));
@@ -1495,6 +1525,7 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
       .filter(Boolean);
 
     const changes = [];
+    if (bunChanged && selectedBunName) changes.push(`Bun: ${selectedBunName}`);
     if (removedNames.length > 0) changes.push(`No ${removedNames.join(', ')}`);
     if (addedNames.length > 0) changes.push(`Add ${addedNames.join(', ')}`);
     return changes.join(' | ');
@@ -1510,8 +1541,9 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
       price: totalPrice,
       isCustom: true,
       baseItemId: item.id,
+      bun: selectedBunName || item?.bun,
       selectedIngredientIds: sortedSelectedIngredientIds,
-      customKey: `custom::${item.id}::${sortedSelectedIngredientIds.join('|')}`,
+      customKey: `custom::${item.id}::bun:${selectedBunId}::${sortedSelectedIngredientIds.join('|')}`,
     });
     onClose();
   };
@@ -1529,6 +1561,31 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
 
         <h3 className="text-3xl font-black tracking-tighter uppercase mb-2">{item.name}</h3>
         <p className="text-zinc-400 mb-6">Customize your build. Remove defaults or add approved extras.</p>
+
+        {bunOptions.length > 0 && (
+          <div className="mb-6">
+            <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Bun</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {bunOptions.map((bunOption) => {
+                const isSelected = selectedBunId === bunOption.id;
+                return (
+                  <button
+                    key={bunOption.id}
+                    onClick={() => setSelectedBunId(bunOption.id)}
+                    className={`w-full border px-4 py-3 text-left transition-colors ${
+                      isSelected
+                        ? 'border-amber-500 bg-amber-500/10 text-white'
+                        : 'border-zinc-800 hover:border-zinc-700 text-zinc-300'
+                    }`}
+                  >
+                    <p className="font-bold">{bunOption.name}</p>
+                    {bunOption.sub && <p className="text-xs text-zinc-500 mt-1">{bunOption.sub}</p>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {allowedIngredients.length === 0 ? (
           <p className="text-zinc-400">No modifiers are available for this item.</p>
@@ -1584,6 +1641,110 @@ const MenuItemCustomizerModal = ({ item, ingredients, onClose, onAddToCart }) =>
   );
 };
 
+const QuickiePickerModal = ({ sides, drinks, onClose, onAddQuickie }) => {
+  const sideOptions = asArray(sides);
+  const drinkOptions = asArray(drinks);
+  const [selectedSideId, setSelectedSideId] = useState(sideOptions[0]?.id || '');
+  const [selectedDrinkId, setSelectedDrinkId] = useState(drinkOptions[0]?.id || '');
+
+  useEffect(() => {
+    if (!sideOptions.some((option) => option.id === selectedSideId)) {
+      setSelectedSideId(sideOptions[0]?.id || '');
+    }
+  }, [sideOptions, selectedSideId]);
+
+  useEffect(() => {
+    if (!drinkOptions.some((option) => option.id === selectedDrinkId)) {
+      setSelectedDrinkId(drinkOptions[0]?.id || '');
+    }
+  }, [drinkOptions, selectedDrinkId]);
+
+  const selectedSide = sideOptions.find((option) => option.id === selectedSideId) || null;
+  const selectedDrink = drinkOptions.find((option) => option.id === selectedDrinkId) || null;
+  const canAddQuickie = Boolean(selectedSide && selectedDrink);
+
+  const handleAddQuickie = () => {
+    if (!selectedSide || !selectedDrink) return;
+
+    onAddQuickie({
+      id: 991,
+      name: 'Make It a Quickie',
+      desc: `${selectedSide.name} + ${selectedDrink.name}`,
+      price: 4,
+      isCustom: true,
+      customKey: `quickie::${selectedSide.id}::${selectedDrink.id}`,
+    });
+
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/75 backdrop-blur-sm px-4 py-8 overflow-y-auto">
+      <div className="max-w-lg mx-auto bg-zinc-950 border border-zinc-800 text-white p-6 md:p-8 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+          aria-label="Close quickie picker"
+        >
+          <X size={20} />
+        </button>
+
+        <h3 className="text-3xl font-black tracking-tighter uppercase mb-2">Make It A Quickie</h3>
+        <p className="text-zinc-400 mb-6">Add any side + any drink for $4.</p>
+
+        {sideOptions.length === 0 || drinkOptions.length === 0 ? (
+          <p className="text-zinc-400">No quickie options are available right now.</p>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
+                Side
+              </label>
+              <select
+                value={selectedSideId}
+                onChange={(event) => setSelectedSideId(Number(event.target.value))}
+                className="w-full bg-zinc-900 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
+              >
+                {sideOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
+                Drink
+              </label>
+              <select
+                value={selectedDrinkId}
+                onChange={(event) => setSelectedDrinkId(Number(event.target.value))}
+                className="w-full bg-zinc-900 border border-zinc-700 text-white px-3 py-2 focus:outline-none focus:border-amber-500"
+              >
+                {drinkOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-8 border-t border-zinc-800 pt-6">
+          <button
+            onClick={handleAddQuickie}
+            disabled={!canAddQuickie}
+            className="w-full bg-white text-black font-black text-lg py-4 uppercase tracking-wide hover:bg-amber-500 transition-colors disabled:bg-zinc-800 disabled:text-zinc-400 disabled:cursor-not-allowed"
+          >
+            Add Quickie ($4)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MenuList = ({
   onNavigate,
   cart,
@@ -1613,6 +1774,13 @@ const MenuList = ({
   ingredientOptions,
 }) => {
   const [customizingItem, setCustomizingItem] = useState(null);
+  const [isQuickiePickerOpen, setIsQuickiePickerOpen] = useState(false);
+  const quickieDrinkOptions = [
+    ...asArray(drinksMenuItems?.soda),
+    ...asArray(drinksMenuItems?.water),
+    ...asArray(drinksMenuItems?.beer),
+  ];
+  const isQuickieAvailable = sidesMenuItems.length > 0 && quickieDrinkOptions.length > 0;
 
   const isItemAddDisabled = (item) =>
     Boolean(pickupTimeError) || (breakfastItemIdsSet.has(item.id) && !isBreakfastAvailableForPickup);
@@ -1633,6 +1801,7 @@ const MenuList = ({
       : 0;
     const addDisabled = isItemAddDisabled(item);
     const disabledLabel = getDisabledLabel(item);
+    const canShowQuickieButton = Boolean(item.bun) && !item.isCustom;
 
     return (
       <div
@@ -1653,16 +1822,19 @@ const MenuList = ({
             </h3>
             <span className="text-xl font-bold text-zinc-400 shrink-0 ml-2">${item.price}</span>
           </div>
-          <p className="text-zinc-300 font-medium mb-3 text-lg leading-snug">{item.desc}</p>
+          <p className="text-zinc-300 font-medium mb-3 text-lg leading-snug">{getDescriptionWithBun(item)}</p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 border-t border-zinc-800 pt-4 gap-4">
-          <div className="flex items-center gap-2 text-zinc-500 text-sm font-bold uppercase tracking-wider">
-            {item.bun && <span className="bg-zinc-800 px-2 py-1">{item.bun}</span>}
-            {item.heat && !item.isCustom && (
-              <span className="flex items-center text-amber-500 text-xs font-black bg-amber-500/10 px-2 py-1 rounded">
-                CHAR FINISH
-              </span>
+          <div className="flex items-center gap-2 min-h-[30px]">
+            {canShowQuickieButton && (
+              <button
+                onClick={() => setIsQuickiePickerOpen(true)}
+                disabled={addDisabled || !isQuickieAvailable}
+                className="flex items-center text-amber-500 text-xs font-black bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded uppercase tracking-wider hover:bg-amber-500 hover:text-black transition-colors disabled:border-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 disabled:hover:text-zinc-600 disabled:hover:bg-zinc-900 disabled:cursor-not-allowed"
+              >
+                Make It A Quickie +$4
+              </button>
             )}
           </div>
 
@@ -1997,6 +2169,14 @@ const MenuList = ({
             ingredients={ingredientOptions}
             onClose={() => setCustomizingItem(null)}
             onAddToCart={addCustomizedItemToCart}
+          />
+        )}
+        {isQuickiePickerOpen && (
+          <QuickiePickerModal
+            sides={sidesMenuItems}
+            drinks={quickieDrinkOptions}
+            onClose={() => setIsQuickiePickerOpen(false)}
+            onAddQuickie={addToCart}
           />
         )}
       </div>
@@ -4262,7 +4442,7 @@ const DogHub = () => {
 
   const addItemToCart = (item) => {
     const normalizedName = item.name || item.item || 'ITEM';
-    const normalizedDesc = item.desc || item.description || '';
+    const normalizedDesc = getDescriptionWithBun(item);
     const normalizedItem = { ...item, name: normalizedName, desc: normalizedDesc, qty: 1 };
 
     setCart((prevCart) => {
