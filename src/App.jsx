@@ -320,6 +320,11 @@ const getEasternDateKey = (date) => {
   return `${values.year}-${values.month}-${values.day}`;
 };
 
+const getEasternTimeValue = (date) => {
+  const { hour, minute } = getEasternTimeParts(date);
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
+
 const toMinutes = (timeText) => {
   if (!timeText || !timeText.includes(':')) return NaN;
   const [hour, minute] = timeText.split(':').map(Number);
@@ -363,19 +368,6 @@ const isBreakfastAvailableAt = (date) => {
   return minutes >= 5 * 60 && minutes < 11 * 60;
 };
 
-const formatDateTimeLocal = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hour}:${minute}`;
-};
-
-const formatDateInput = (date) => formatDateTimeLocal(date).slice(0, 10);
-
-const formatTimeInput = (date) => formatDateTimeLocal(date).slice(11, 16);
-
 const formatTimeLabel = (timeValue) => {
   const [hourText, minuteText] = timeValue.split(':');
   const hour = Number(hourText);
@@ -385,28 +377,13 @@ const formatTimeLabel = (timeValue) => {
 };
 
 const buildOrderAheadDateOptions = (currentDate, latestDate) => {
-  const currentDateValue = formatDateInput(currentDate);
-  const latestDateValue = formatDateInput(latestDate);
+  const currentDateValue = getEasternDateKey(currentDate);
+  const latestDateValue = getEasternDateKey(latestDate);
   const options = [{ value: currentDateValue, label: 'Today' }];
   if (latestDateValue !== currentDateValue) {
     options.push({ value: latestDateValue, label: 'Tomorrow' });
   }
   return options;
-};
-
-const combineDateAndTime = (dateValue, timeValue) => {
-  const [year, month, day] = dateValue.split('-').map(Number);
-  const [hour, minute] = timeValue.split(':').map(Number);
-  if (
-    Number.isNaN(year) ||
-    Number.isNaN(month) ||
-    Number.isNaN(day) ||
-    Number.isNaN(hour) ||
-    Number.isNaN(minute)
-  ) {
-    return null;
-  }
-  return new Date(year, month - 1, day, hour, minute);
 };
 
 const roundUpToQuarterHour = (date) => {
@@ -417,12 +394,6 @@ const roundUpToQuarterHour = (date) => {
   if (remainder !== 0) rounded.setMinutes(minutes + (15 - remainder));
   return rounded;
 };
-
-const quarterHourTimeOptions = Array.from({ length: 96 }, (_, index) => {
-  const hour = String(Math.floor(index / 4)).padStart(2, '0');
-  const minute = String((index % 4) * 15).padStart(2, '0');
-  return `${hour}:${minute}`;
-});
 
 const normalizeToMinute = (date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes());
@@ -1456,7 +1427,7 @@ const CartView = ({
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
-                        Date
+                        Date (ET)
                       </label>
                       <select
                         value={pickupDateValue}
@@ -1477,7 +1448,7 @@ const CartView = ({
                     </div>
                     <div>
                       <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
-                        Time
+                        Time (ET)
                       </label>
                       <select
                         value={pickupTimeValue}
@@ -2218,7 +2189,7 @@ const MenuList = ({
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
-                        Date
+                        Date (ET)
                       </label>
                       <select
                         value={pickupDateValue}
@@ -2239,7 +2210,7 @@ const MenuList = ({
                     </div>
                     <div>
                       <label className="block text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">
-                        Time
+                        Time (ET)
                       </label>
                       <select
                         value={pickupTimeValue}
@@ -4667,8 +4638,8 @@ const DogHub = () => {
   const latestPickupTime = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
   const effectivePickupAt = isOrderAheadEnabled ? normalizedPickupAt : currentTime;
   const basePickupDateOptions = buildOrderAheadDateOptions(currentTime, latestPickupTime);
-  const pickupDateValue = formatDateInput(normalizedPickupAt);
-  const pickupTimeValue = formatTimeInput(normalizedPickupAt);
+  const pickupDateValue = getEasternDateKey(normalizedPickupAt);
+  const pickupTimeValue = getEasternTimeValue(normalizedPickupAt);
 
   const isSlotOpenForOrdering = (candidateDateTime) => {
     if (!candidateDateTime) return false;
@@ -4681,14 +4652,45 @@ const DogHub = () => {
     return activeLocations.some((location) => isLocationOpenAt(location, candidateDateTime));
   };
 
-  const getAvailableQuarterHoursForDate = (dateValue) =>
-    quarterHourTimeOptions.filter((timeValue) => {
-      const candidateDateTime = combineDateAndTime(dateValue, timeValue);
-      return isSlotOpenForOrdering(candidateDateTime);
+  const availableOrderAheadSlots = [];
+  const firstCandidate = roundUpToQuarterHour(currentTime);
+  const latestTimeMs = latestPickupTime.getTime();
+  const stepMs = 15 * 60 * 1000;
+
+  for (let candidateMs = firstCandidate.getTime(); candidateMs <= latestTimeMs; candidateMs += stepMs) {
+    const candidateDateTime = new Date(candidateMs);
+    if (!isSlotOpenForOrdering(candidateDateTime)) continue;
+    availableOrderAheadSlots.push({
+      dateValue: getEasternDateKey(candidateDateTime),
+      timeValue: getEasternTimeValue(candidateDateTime),
+      dateTime: candidateDateTime,
     });
-  const pickupDateOptions = basePickupDateOptions.filter(
-    (dateOption) => getAvailableQuarterHoursForDate(dateOption.value).length > 0
-  );
+  }
+
+  const availableSlotsByDate = {};
+  availableOrderAheadSlots.forEach((slot) => {
+    availableSlotsByDate[slot.dateValue] = availableSlotsByDate[slot.dateValue] || [];
+    availableSlotsByDate[slot.dateValue].push(slot);
+  });
+
+  const getAvailableQuarterHoursForDate = (dateValue) => {
+    const slotsForDate = availableSlotsByDate[dateValue] || [];
+    const uniqueTimes = [];
+    const seen = new Set();
+    slotsForDate.forEach((slot) => {
+      if (seen.has(slot.timeValue)) return;
+      seen.add(slot.timeValue);
+      uniqueTimes.push(slot.timeValue);
+    });
+    return uniqueTimes;
+  };
+
+  const getSlotDateTime = (dateValue, timeValue) => {
+    const slot = (availableSlotsByDate[dateValue] || []).find((entry) => entry.timeValue === timeValue);
+    return slot?.dateTime || null;
+  };
+
+  const pickupDateOptions = basePickupDateOptions.filter((dateOption) => (availableSlotsByDate[dateOption.value] || []).length > 0);
   const resolvedPickupDateValue = pickupDateOptions.some((dateOption) => dateOption.value === pickupDateValue)
     ? pickupDateValue
     : pickupDateOptions[0]?.value || pickupDateValue;
@@ -4745,7 +4747,7 @@ const DogHub = () => {
 
     const nextTimeValue =
       isSelectedDateAvailable && availableTimes.includes(pickupTimeValue) ? pickupTimeValue : availableTimes[0];
-    const nextPickupAt = combineDateAndTime(nextDateValue, nextTimeValue);
+    const nextPickupAt = getSlotDateTime(nextDateValue, nextTimeValue);
     if (!nextPickupAt) return;
 
     const normalizedNextPickupAt = normalizeToMinute(nextPickupAt);
@@ -4836,7 +4838,7 @@ const DogHub = () => {
     const nextTimeValue = availableTimes.includes(pickupTimeValue)
       ? pickupTimeValue
       : availableTimes[0] || pickupTimeValue;
-    const nextPickupAt = combineDateAndTime(dateValue, nextTimeValue);
+    const nextPickupAt = getSlotDateTime(dateValue, nextTimeValue);
     if (!nextPickupAt) return;
     setPickupAt(normalizeToMinute(nextPickupAt));
   };
@@ -4844,7 +4846,7 @@ const DogHub = () => {
   const handlePickupTimeSlotChange = (timeValue) => {
     if (!timeValue) return;
     setIsOrderAheadEnabled(true);
-    const nextPickupAt = combineDateAndTime(resolvedPickupDateValue, timeValue);
+    const nextPickupAt = getSlotDateTime(resolvedPickupDateValue, timeValue);
     if (!nextPickupAt) return;
     setPickupAt(normalizeToMinute(nextPickupAt));
   };
@@ -4862,12 +4864,12 @@ const DogHub = () => {
 
     setPickupAt((prevPickupAt) => {
       const normalizedPrevPickupAt = normalizeToMinute(prevPickupAt);
-      const prevDateValue = formatDateInput(normalizedPrevPickupAt);
-      const prevTimeValue = formatTimeInput(normalizedPrevPickupAt);
+      const prevDateValue = getEasternDateKey(normalizedPrevPickupAt);
+      const prevTimeValue = getEasternTimeValue(normalizedPrevPickupAt);
       const prevOptions = getAvailableQuarterHoursForDate(prevDateValue);
       const isPrevValid = prevOptions.includes(prevTimeValue);
       if (!isPrevValid) {
-        return suggestedPickupAt;
+        return availableOrderAheadSlots[0]?.dateTime || suggestedPickupAt;
       }
       return normalizedPrevPickupAt;
     });
