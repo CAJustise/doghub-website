@@ -3118,10 +3118,9 @@ const Footer = ({ onOpenAdmin }) => (
 
 const PromoBanner = ({ promoBanner }) => {
   if (!promoBanner?.active) return null;
-  const segmentText = [promoBanner.title, promoBanner.message]
-    .map((part) => String(part || '').trim())
-    .filter(Boolean)
-    .join(' | ');
+  const promoTitle = String(promoBanner.title || '').trim();
+  const promoMessage = String(promoBanner.message || '').trim();
+  const segmentText = [promoTitle, promoMessage].filter(Boolean).join(' | ');
   if (!segmentText) return null;
 
   const bannerColor = normalizeHexColor(promoBanner.backgroundColor, '#f59e0b');
@@ -3168,14 +3167,16 @@ const PromoBanner = ({ promoBanner }) => {
         {promoBanner.link ? (
           <a
             href={promoBanner.link}
-            className="font-black tracking-wide text-sm hover:opacity-80 transition-opacity"
+            className="inline-flex flex-col items-center gap-0.5 font-black tracking-wide text-sm hover:opacity-80 transition-opacity"
             style={{ color: textColor }}
           >
-            {segmentText}
+            {promoTitle && <span>{promoTitle}</span>}
+            {promoMessage && <span>{promoMessage}</span>}
           </a>
         ) : (
-          <span className="font-black tracking-wide text-sm" style={{ color: textColor }}>
-            {segmentText}
+          <span className="inline-flex flex-col items-center gap-0.5 font-black tracking-wide text-sm" style={{ color: textColor }}>
+            {promoTitle && <span>{promoTitle}</span>}
+            {promoMessage && <span>{promoMessage}</span>}
           </span>
         )}
       </div>
