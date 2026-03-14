@@ -13,6 +13,7 @@ import {
   MapPin,
   ExternalLink,
   Minus,
+  Phone,
 } from 'lucide-react';
 import sullyMascot from './assets/sully-mascot.png';
 import emptyBagSully from './assets/empty-bag-sully.png';
@@ -270,6 +271,12 @@ const getDirectionsLink = (address) => {
   }
 
   return `https://www.openstreetmap.org/search?query=${encodedAddress}`;
+};
+
+const getPhoneLink = (phoneText) => {
+  const sanitized = String(phoneText || '').replace(/[^\d+]/g, '');
+  if (!sanitized) return null;
+  return `tel:${sanitized}`;
 };
 
 const easternTimeFormatter = new Intl.DateTimeFormat('en-US', {
@@ -815,7 +822,7 @@ const withDogMenuDefaults = (item, defaultAllowedIngredientIds) => ({
 const withLocationDefaults = (location) => ({
   ...location,
   active: location.active !== false,
-  phone: location.phone || '',
+  phone: location.phone || location.phoneNumber || '',
   schedule: location.schedule || { default: { open: '05:00', close: '24:00' } },
   holidayHours: asArray(location.holidayHours).map((entry) => ({
     id: entry.id || `holiday-${Date.now()}-${Math.random()}`,
@@ -860,6 +867,9 @@ const loadCrmData = () => {
 
     const parsed = JSON.parse(saved);
     const normalizedIngredients = asArray(parsed?.ingredients, defaults.ingredients).map(withIngredientDefaults);
+    const defaultLocationsById = Object.fromEntries(
+      asArray(defaults.locations).map((location) => [location.id, location])
+    );
     const defaultDogAllowedIngredientIds = normalizedIngredients
       .filter((ingredient) => ingredient.category.startsWith('dog-'))
       .map((ingredient) => ingredient.id);
@@ -884,7 +894,12 @@ const loadCrmData = () => {
         },
       },
       ingredients: normalizedIngredients,
-      locations: asArray(parsed?.locations, defaults.locations).map(withLocationDefaults),
+      locations: asArray(parsed?.locations, defaults.locations).map((location) => {
+        const normalizedLocation = withLocationDefaults(location);
+        if (normalizedLocation.phone) return normalizedLocation;
+        const fallbackPhone = defaultLocationsById[normalizedLocation.id]?.phone || '';
+        return { ...normalizedLocation, phone: fallbackPhone };
+      }),
       merch: asArray(parsed?.merch, defaults.merch).map(withMerchDefaults),
       quickie: withQuickieDefaults(parsed?.quickie, defaults.quickie),
       promoBanner: {
@@ -2495,7 +2510,15 @@ const LocationsList = ({
                     <Clock size={16} className="mr-2" />
                     {loc.hours}
                   </div>
-                  {loc.phone && <p className="text-zinc-500 font-mono text-sm mt-2">Phone: {loc.phone}</p>}
+                  {loc.phone && (
+                    <a
+                      href={getPhoneLink(loc.phone) || undefined}
+                      className="mt-2 inline-flex items-center gap-2 text-zinc-200 font-mono text-sm hover:text-amber-500 transition-colors"
+                    >
+                      <Phone size={14} />
+                      <span>{loc.phone}</span>
+                    </a>
+                  )}
                   {holidayHoursToday && (
                     <p className="text-amber-500 font-bold text-xs uppercase tracking-wider mt-2">
                       {holidayHoursToday.closed
@@ -3123,19 +3146,23 @@ const Footer = ({ onOpenAdmin }) => (
 );
 
 const PromoBanner = ({ promoBanner }) => {
-  if (!promoBanner?.active || !promoBanner.message) return null;
+  if (!promoBanner?.active) return null;
+  const segmentText = [promoBanner.title, promoBanner.message]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(' | ');
+  if (!segmentText) return null;
 
   const bannerColor = normalizeHexColor(promoBanner.backgroundColor, '#f59e0b');
   const textColor = normalizeHexColor(promoBanner.textColor, getReadableTextColor(bannerColor));
   const scrollDurationSeconds = normalizePromoScrollSeconds(promoBanner.scrollDurationSeconds, 78);
-  const segmentText = [promoBanner.title, promoBanner.message].filter(Boolean).join(' | ');
 
   const renderSegment = (segmentKey) =>
     promoBanner.link ? (
       <a
         key={segmentKey}
         href={promoBanner.link}
-        className="shrink-0 px-6 py-2 font-black tracking-wide whitespace-nowrap hover:opacity-80 transition-opacity"
+        className="shrink-0 px-6 py-2.5 font-black tracking-wide whitespace-nowrap hover:opacity-80 transition-opacity text-sm md:text-base"
         style={{ color: textColor }}
       >
         {segmentText}
@@ -3143,7 +3170,7 @@ const PromoBanner = ({ promoBanner }) => {
     ) : (
       <span
         key={segmentKey}
-        className="shrink-0 px-6 py-2 font-black tracking-wide whitespace-nowrap"
+        className="shrink-0 px-6 py-2.5 font-black tracking-wide whitespace-nowrap text-sm md:text-base"
         style={{ color: textColor }}
       >
         {segmentText}
@@ -3152,7 +3179,7 @@ const PromoBanner = ({ promoBanner }) => {
 
   return (
     <div
-      className="w-full overflow-hidden border-b-2 mt-16 relative z-40"
+      className="w-full overflow-hidden border-b-2 mt-16 relative z-[45]"
       style={{
         backgroundColor: bannerColor,
         borderBottomColor: textColor === '#111111' ? '#111111' : '#e5e7eb',
