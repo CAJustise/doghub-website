@@ -3164,8 +3164,23 @@ const PromoBanner = ({ promoBanner }) => {
           }
         `}
       </style>
+      <div className="md:hidden px-4 py-2.5 text-center">
+        {promoBanner.link ? (
+          <a
+            href={promoBanner.link}
+            className="font-black tracking-wide text-sm hover:opacity-80 transition-opacity"
+            style={{ color: textColor }}
+          >
+            {segmentText}
+          </a>
+        ) : (
+          <span className="font-black tracking-wide text-sm" style={{ color: textColor }}>
+            {segmentText}
+          </span>
+        )}
+      </div>
       <div
-        className="w-max min-w-full flex items-center"
+        className="hidden md:flex w-max min-w-full items-center"
         style={{ animation: `doghub-promo-scroll ${scrollDurationSeconds}s linear infinite` }}
       >
         <div className="flex items-center">
