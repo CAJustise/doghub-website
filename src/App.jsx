@@ -3123,7 +3123,6 @@ const PromoBanner = ({ promoBanner }) => {
   const promoTitle = String(promoBanner.title || '').trim();
   const promoMessage = String(promoBanner.message || '').trim();
   const segmentText = [promoTitle, promoMessage].filter(Boolean).join(' | ');
-  const staticDesktopText = [promoTitle, promoMessage].filter(Boolean).join(' ');
   const shouldScrollDesktop = promoBanner.scrollDesktop !== false;
   if (!segmentText) return null;
 
@@ -3201,14 +3200,16 @@ const PromoBanner = ({ promoBanner }) => {
           {promoBanner.link ? (
             <a
               href={promoBanner.link}
-              className="font-black tracking-wide text-base hover:opacity-80 transition-opacity"
+              className="inline-flex flex-col items-center gap-0.5 font-black tracking-wide text-base hover:opacity-80 transition-opacity"
               style={{ color: textColor }}
             >
-              {staticDesktopText}
+              {promoTitle && <span>{promoTitle}</span>}
+              {promoMessage && <span>{promoMessage}</span>}
             </a>
           ) : (
-            <span className="font-black tracking-wide text-base" style={{ color: textColor }}>
-              {staticDesktopText}
+            <span className="inline-flex flex-col items-center gap-0.5 font-black tracking-wide text-base" style={{ color: textColor }}>
+              {promoTitle && <span>{promoTitle}</span>}
+              {promoMessage && <span>{promoMessage}</span>}
             </span>
           )}
         </div>
