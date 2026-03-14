@@ -772,6 +772,7 @@ const createDefaultCrmData = () => {
       link: '',
       backgroundColor: '#f59e0b',
       textColor: '#111111',
+      scrollDesktop: true,
       scrollDurationSeconds: 78,
     },
   };
@@ -881,6 +882,7 @@ const loadCrmData = () => {
           defaults.promoBanner.backgroundColor
         ),
         textColor: normalizeHexColor(parsed?.promoBanner?.textColor, defaults.promoBanner.textColor),
+        scrollDesktop: parsed?.promoBanner?.scrollDesktop !== false,
         scrollDurationSeconds: normalizePromoScrollSeconds(
           parsed?.promoBanner?.scrollDurationSeconds,
           defaults.promoBanner.scrollDurationSeconds
@@ -3121,6 +3123,8 @@ const PromoBanner = ({ promoBanner }) => {
   const promoTitle = String(promoBanner.title || '').trim();
   const promoMessage = String(promoBanner.message || '').trim();
   const segmentText = [promoTitle, promoMessage].filter(Boolean).join(' | ');
+  const staticDesktopText = [promoTitle, promoMessage].filter(Boolean).join(' ');
+  const shouldScrollDesktop = promoBanner.scrollDesktop !== false;
   if (!segmentText) return null;
 
   const bannerColor = normalizeHexColor(promoBanner.backgroundColor, '#f59e0b');
@@ -3180,17 +3184,35 @@ const PromoBanner = ({ promoBanner }) => {
           </span>
         )}
       </div>
-      <div
-        className="hidden md:flex w-max min-w-full items-center"
-        style={{ animation: `doghub-promo-scroll ${scrollDurationSeconds}s linear infinite` }}
-      >
-        <div className="flex items-center">
-          {Array.from({ length: 6 }, (_, index) => renderSegment(`promo-a-${index}`))}
+      {shouldScrollDesktop ? (
+        <div
+          className="hidden md:flex w-max min-w-full items-center"
+          style={{ animation: `doghub-promo-scroll ${scrollDurationSeconds}s linear infinite` }}
+        >
+          <div className="flex items-center">
+            {Array.from({ length: 6 }, (_, index) => renderSegment(`promo-a-${index}`))}
+          </div>
+          <div className="flex items-center" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, index) => renderSegment(`promo-b-${index}`))}
+          </div>
         </div>
-        <div className="flex items-center" aria-hidden="true">
-          {Array.from({ length: 6 }, (_, index) => renderSegment(`promo-b-${index}`))}
+      ) : (
+        <div className="hidden md:flex w-full justify-center px-6 py-2.5 text-center">
+          {promoBanner.link ? (
+            <a
+              href={promoBanner.link}
+              className="font-black tracking-wide text-base hover:opacity-80 transition-opacity"
+              style={{ color: textColor }}
+            >
+              {staticDesktopText}
+            </a>
+          ) : (
+            <span className="font-black tracking-wide text-base" style={{ color: textColor }}>
+              {staticDesktopText}
+            </span>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -4463,6 +4485,19 @@ const AdminDashboard = ({ crmData, setCrmData, onLogout }) => {
                 }
               />
               Promo Banner Active
+            </label>
+            <label className="text-xs uppercase font-bold tracking-widest text-zinc-400 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={crmData.promoBanner?.scrollDesktop !== false}
+                onChange={(event) =>
+                  setCrmData((prevData) => ({
+                    ...prevData,
+                    promoBanner: { ...prevData.promoBanner, scrollDesktop: event.target.checked },
+                  }))
+                }
+              />
+              Scroll On Desktop
             </label>
             <input
               value={crmData.promoBanner?.title || ''}
